@@ -1,0 +1,27 @@
+[package]
+name = "unicode-security"
+version = "0.0.1"
+authors = ["Charles Lew <crlf0710@gmail.com>"]
+edition = "2018"
+homepage = "https://github.com/unicode-rs/unicode-security"
+repository = "https://github.com/unicode-rs/unicode-security"
+documentation = "https://unicode-rs.github.io/unicode-security"
+license = "MIT/Apache-2.0"
+keywords = ["text", "security", "unicode"]
+readme = "README.md"
+description = """
+Detect possible security problems with Unicode usage
+according to Unicode Technical Standard #39 rules.
+"""
+exclude = [ "target/*", "Cargo.lock" ]
+
+[dependencies]
+std = { version = "1.0", package = "rustc-std-workspace-std", optional = true }
+core = { version = "1.0", package = "rustc-std-workspace-core", optional = true }
+compiler_builtins = { version = "0.1", optional = true }
+
+[features]
+default = []
+no_std = []
+bench = []
+rustc-dep-of-std = ['std', 'core', 'compiler_builtins']

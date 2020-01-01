@@ -22,6 +22,5 @@ compiler_builtins = { version = "0.1", optional = true }
 
 [features]
 default = []
-no_std = []
 bench = []
 rustc-dep-of-std = ['std', 'core', 'compiler_builtins']

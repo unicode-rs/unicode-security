@@ -9,7 +9,7 @@
 // except according to those terms.
 
 #[test]
-fn test_char() {
+fn test_general_security_profile_identifier_allowed() {
     use crate::GeneralSecurityProfile;
     assert_eq!(GeneralSecurityProfile::identifier_allowed('A'), true);
     assert_eq!('A'.identifier_allowed(), true);
@@ -25,4 +25,36 @@ fn test_char() {
     // U+2160 ROMAN NUMERAL ONE
     assert_eq!(GeneralSecurityProfile::identifier_allowed('Ⅰ'), false);
     assert_eq!('Ⅰ'.identifier_allowed(), false);
+}
+
+#[test]
+fn test_mixed_script() {
+    use crate::MixedScript;
+    assert_eq!("".is_single_script(), true);
+    assert_eq!("".resolve_script_set().is_empty(), false);
+    assert_eq!("".resolve_script_set().is_all(), true);
+    assert_eq!("A".is_single_script(), true);
+    assert_eq!("A".resolve_script_set().is_empty(), false);
+    assert_eq!("A".resolve_script_set().is_all(), false);
+    assert_eq!("A0".is_single_script(), true);
+    assert_eq!("A0".resolve_script_set().is_empty(), false);
+    assert_eq!("A0".resolve_script_set().is_all(), false);
+    assert_eq!("0.".is_single_script(), true);
+    assert_eq!("0.".resolve_script_set().is_empty(), false);
+    assert_eq!("0.".resolve_script_set().is_all(), true);
+    assert_eq!("福".is_single_script(), true);
+    assert_eq!("福".resolve_script_set().is_empty(), false);
+    assert_eq!("福".resolve_script_set().is_all(), false);
+    assert_eq!("冬の雪".is_single_script(), true);
+    assert_eq!("冬の雪".resolve_script_set().is_empty(), false);
+    assert_eq!("冬の雪".resolve_script_set().is_all(), false);
+    assert_eq!("幻ㄒㄧㄤ".is_single_script(), true);
+    assert_eq!("幻ㄒㄧㄤ".resolve_script_set().is_empty(), false);
+    assert_eq!("幻ㄒㄧㄤ".resolve_script_set().is_all(), false);
+    assert_eq!("日出은".is_single_script(), true);
+    assert_eq!("日出은".resolve_script_set().is_empty(), false);
+    assert_eq!("日出은".resolve_script_set().is_all(), false);
+    assert_eq!("夏の幻ㄒㄧㄤ".is_single_script(), false);
+    assert_eq!("夏の幻ㄒㄧㄤ".resolve_script_set().is_empty(), true);
+    assert_eq!("夏の幻ㄒㄧㄤ".resolve_script_set().is_all(), false);
 }

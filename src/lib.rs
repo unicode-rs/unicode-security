@@ -64,12 +64,12 @@ mod tables;
 mod tests;
 
 /// Methods for determining characters not restricted from use for identifiers.
-pub trait IdentifierStatusChar {
+pub trait UnicodeIdentifierStatus {
     /// Returns whether the character is not restricted from use for identifiers.
     fn identifier_allowed(self) -> bool;
 }
 
-impl IdentifierStatusChar for char {
+impl UnicodeIdentifierStatus for char {
     #[inline]
     fn identifier_allowed(self) -> bool { is::identifier_status_allowed(self) }
 }

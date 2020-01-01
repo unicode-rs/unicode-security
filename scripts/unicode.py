@@ -34,13 +34,17 @@ preamble = '''// Copyright 2012-2015 The Rust Project Developers. See the COPYRI
 #![allow(missing_docs, non_upper_case_globals, non_snake_case)]
 '''
 
+UNICODE_VERSION = (12, 1, 0)
+
+UNICODE_VERSION_NUMBER = "%s.%s.%s" %UNICODE_VERSION
+
 def fetch(f):
     if not os.path.exists(os.path.basename(f)):
-        os.system("curl -O http://www.unicode.org/Public/security/latest/%s"
-                  % f)
+        os.system("curl -O http://www.unicode.org/Public/security/%s/%s"
+                  % (UNICODE_VERSION_NUMBER, f))
 
     if not os.path.exists(os.path.basename(f)):
-        sys.stderr.write("cannot load %s" % f)
+        sys.stderr.write("cannot load %s\n" % f)
         exit(1)
 
 # load identifier status data
@@ -154,17 +158,12 @@ if __name__ == "__main__":
         # write the file's preamble
         rf.write(preamble)
 
-        # download and parse all the data
-        fetch("ReadMe.txt")
-        with open("ReadMe.txt") as readme:
-            pattern = "for Version (\d+)\.(\d+)\.(\d+) of"
-            unicode_version = re.search(pattern, readme.read()).groups()
         rf.write("""
 /// The version of [Unicode](http://www.unicode.org/)
 /// that this version of unicode-security is based on.
 pub const UNICODE_VERSION: (u64, u64, u64) = (%s, %s, %s);
 
-""" % unicode_version)
+""" % UNICODE_VERSION)
         ### identifier status module
         identifier_status_table = load_identifier_status()
         emit_identifier_status_module(rf, identifier_status_table)

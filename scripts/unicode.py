@@ -47,37 +47,39 @@ def fetch(f):
         sys.stderr.write("cannot load %s\n" % f)
         exit(1)
 
-# load identifier status data
-def load_identifier_status():
-    f = "IdentifierStatus.txt"
+# Implementation from unicode-segmentation
+def load_properties(f, interestingprops = None):
     fetch(f)
-    statuses = []
-    re1 = re.compile("^([0-9A-F]+) +; +(\w+)")
-    re2 = re.compile("^([0-9A-F]+)\.\.([0-9A-F]+) +; +(\w+)")
+    props = {}
+    re1 = re.compile(r"^ *([0-9A-F]+) *; *(\w+)")
+    re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *(\w+)")
 
-    for line in fileinput.input(f):
+    for line in fileinput.input(os.path.basename(f)):
+        prop = None
         d_lo = 0
         d_hi = 0
-        cat = None
         m = re1.match(line)
         if m:
             d_lo = m.group(1)
             d_hi = m.group(1)
-            cat = m.group(2)
+            prop = m.group(2).strip()
         else:
             m = re2.match(line)
             if m:
                 d_lo = m.group(1)
                 d_hi = m.group(2)
-                cat = m.group(3)
+                prop = m.group(3).strip()
             else:
                 continue
-        if cat != "Allowed":
+        if interestingprops and prop not in interestingprops:
             continue
         d_lo = int(d_lo, 16)
         d_hi = int(d_hi, 16)
-        statuses.append((d_lo, d_hi))
-    return statuses
+        if prop not in props:
+            props[prop] = []
+        props[prop].append((d_lo, d_hi))
+
+    return props
 
 def format_table_content(f, content, indent):
     line = " "*indent
@@ -115,40 +117,94 @@ def emit_table(f, name, t_data, t_type = "&'static [(char, char)]", is_pub=True,
     format_table_content(f, data, 8)
     f.write("\n    ];\n\n")
 
-def emit_identifier_status_module(f, statuses_table):
-    f.write("pub mod identifier_status {")
+def emit_identifier_module(f):
+    f.write("pub mod identifier {")
     f.write("""
-    use core::result::Result::{Ok, Err};
 
-    #[inline]
-    fn bsearch_range_value_table(c: char, r: &'static [(char, char)]) -> bool {
-        use core::cmp::Ordering::{Equal, Less, Greater};
-        match r.binary_search_by(|&(lo, hi)| {
-            if lo <= c && c <= hi { Equal }
-            else if hi < c { Less }
-            else { Greater }
-        }) {
-            Ok(_) => true,
-            Err(_) => false
-        }
+    #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
+    #[allow(non_camel_case_types)]
+    /// https://www.unicode.org/reports/tr39/#Identifier_Status_and_Type
+    pub enum IdentifierType {
+        // Restricted
+        Not_Character,
+        Deprecated,
+        Default_Ignorable,
+        Not_NFKC,
+        Not_XID,
+        Exclusion,
+        Obsolete,
+        Technical,
+        Uncommon_Use,
+        Limited_Use,
+
+        // Allowed
+        Inclusion,
+        Recommended
     }
-""")
-
-    f.write("""
     #[inline]
     pub fn identifier_status_allowed(c: char) -> bool {
         // FIXME: do we want to special case ASCII here?
         match c as usize {
-            _ => bsearch_range_value_table(c, identifier_status_table)
+            _ => super::util::bsearch_range_table(c, IDENTIFIER_STATUS)
         }
     }
 
+    #[inline]
+    pub fn identifier_type(c: char) -> Option<IdentifierType> {
+        // FIXME: do we want to special case ASCII here?
+        match c as usize {
+            _ => super::util::bsearch_range_value_table(c, IDENTIFIER_TYPE)
+        }
+    }
 """)
 
-    f.write("    // identifier status table.\n")
-    emit_table(f, "identifier_status_table", statuses_table, "&'static [(char, char)]", is_pub=False,
+    f.write("    // Identifier status table:\n")
+    identifier_status_table = load_properties("IdentifierStatus.txt")
+    emit_table(f, "IDENTIFIER_STATUS", identifier_status_table['Allowed'], "&'static [(char, char)]", is_pub=False,
             pfun=lambda x: "(%s,%s)" % (escape_char(x[0]), escape_char(x[1])))
+    identifier_type = load_properties("IdentifierType.txt")
+    type_table = []
+    for ty in identifier_type:
+        type_table.extend([(x, y, ty) for (x, y) in identifier_type[ty]])
+    
+    type_table.sort(key=lambda w: w[0])
+
+    emit_table(f, "IDENTIFIER_TYPE", type_table, "&'static [(char, char, IdentifierType)]", is_pub=False,
+            pfun=lambda x: "(%s,%s, IdentifierType::%s)" % (escape_char(x[0]), escape_char(x[1]), x[2]))
     f.write("}\n\n")
+
+def emit_util_mod(f):
+    f.write("""
+pub mod util {
+    use core::result::Result::{Ok, Err};
+    #[inline]
+    pub fn bsearch_range_table(c: char, r: &'static [(char,char)]) -> bool {
+        use core::cmp::Ordering::{Equal, Less, Greater};
+        r.binary_search_by(|&(lo,hi)| {
+            if lo <= c && c <= hi { Equal }
+            else if hi < c { Less }
+            else { Greater }
+        }).is_ok()
+    }
+    
+    pub fn bsearch_range_value_table<T: Copy>(c: char, r: &'static [(char, char, T)]) -> Option<T> {
+        use core::cmp::Ordering::{Equal, Less, Greater};
+        match r.binary_search_by(|&(lo, hi, _)| {
+            if lo <= c && c <= hi { Equal }
+            else if hi < c { Less }
+            else { Greater }
+        }) {
+            Ok(idx) => {
+                let (_, _, cat) = r[idx];
+                Some(cat)
+            }
+            Err(_) => None
+        }
+    }
+
+}
+
+""")
 
 if __name__ == "__main__":
     r = "tables.rs"
@@ -164,6 +220,7 @@ if __name__ == "__main__":
 pub const UNICODE_VERSION: (u64, u64, u64) = (%s, %s, %s);
 
 """ % UNICODE_VERSION)
-        ### identifier status module
-        identifier_status_table = load_identifier_status()
-        emit_identifier_status_module(rf, identifier_status_table)
+
+        emit_util_mod(rf)
+        ### identifier module
+        emit_identifier_module(rf)

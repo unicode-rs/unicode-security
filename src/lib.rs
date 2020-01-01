@@ -58,6 +58,8 @@ extern crate test;
 use tables::identifier_status as is;
 pub use tables::UNICODE_VERSION;
 
+pub mod mixed_script;
+
 mod tables;
 
 #[cfg(test)]

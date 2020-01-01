@@ -26,11 +26,6 @@
 //! }
 //! ```
 //!
-//! # features
-//!
-//! unicode-security supports a `no_std` feature. This eliminates dependence
-//! on std, and instead uses equivalent functions from core.
-//!
 //! # crates.io
 //!
 //! You can use this package in your project by adding the following
@@ -57,6 +52,8 @@ extern crate test;
 
 use tables::identifier_status as is;
 pub use tables::UNICODE_VERSION;
+
+pub mod mixed;
 
 mod tables;
 

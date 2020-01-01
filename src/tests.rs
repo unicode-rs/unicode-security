@@ -10,19 +10,19 @@
 
 #[test]
 fn test_char() {
-    use super::IdentifierStatusChar;
-    assert_eq!(IdentifierStatusChar::identifier_allowed('A'), true);
+    use crate::GeneralSecurityProfile;
+    assert_eq!(GeneralSecurityProfile::identifier_allowed('A'), true);
     assert_eq!('A'.identifier_allowed(), true);
-    assert_eq!(IdentifierStatusChar::identifier_allowed('0'), true);
+    assert_eq!(GeneralSecurityProfile::identifier_allowed('0'), true);
     assert_eq!('0'.identifier_allowed(), true);
-    assert_eq!(IdentifierStatusChar::identifier_allowed('_'), true);
+    assert_eq!(GeneralSecurityProfile::identifier_allowed('_'), true);
     assert_eq!('_'.identifier_allowed(), true);
-    assert_eq!(IdentifierStatusChar::identifier_allowed('\x00'), false);
+    assert_eq!(GeneralSecurityProfile::identifier_allowed('\x00'), false);
     assert_eq!('\x00'.identifier_allowed(), false);
     // U+00B5 MICRO SIGN
-    assert_eq!(IdentifierStatusChar::identifier_allowed('µ'), false);
+    assert_eq!(GeneralSecurityProfile::identifier_allowed('µ'), false);
     assert_eq!('µ'.identifier_allowed(), false);
     // U+2160 ROMAN NUMERAL ONE
-    assert_eq!(IdentifierStatusChar::identifier_allowed('Ⅰ'), false);
+    assert_eq!(GeneralSecurityProfile::identifier_allowed('Ⅰ'), false);
     assert_eq!('Ⅰ'.identifier_allowed(), false);
 }

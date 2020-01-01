@@ -15,7 +15,7 @@
 //! ```rust
 //! extern crate unicode_security;
 //!
-//! use unicode_security::IdentifierStatusChar;
+//! use unicode_security::GeneralSecurityProfile;
 //!
 //! fn main() {
 //!     let ch = 'µ'; // U+00B5 MICRO SIGN
@@ -55,23 +55,16 @@ extern crate std;
 #[cfg(feature = "bench")]
 extern crate test;
 
-use tables::identifier_status as is;
 pub use tables::UNICODE_VERSION;
 
 pub mod mixed_script;
+pub mod general_security_profile;
 
-mod tables;
+pub use mixed_script::MixedScript;
+pub use general_security_profile::GeneralSecurityProfile;
+
+#[rustfmt::skip]
+pub(crate) mod tables;
 
 #[cfg(test)]
 mod tests;
-
-/// Methods for determining characters not restricted from use for identifiers.
-pub trait UnicodeIdentifierStatus {
-    /// Returns whether the character is not restricted from use for identifiers.
-    fn identifier_allowed(self) -> bool;
-}
-
-impl UnicodeIdentifierStatus for char {
-    #[inline]
-    fn identifier_allowed(self) -> bool { is::identifier_status_allowed(self) }
-}

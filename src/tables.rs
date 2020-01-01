@@ -16,31 +16,45 @@
 /// that this version of unicode-security is based on.
 pub const UNICODE_VERSION: (u64, u64, u64) = (12, 1, 0);
 
-pub mod identifier_status {
-    use core::result::Result::{Ok, Err};
 
+pub mod util {
+    use core::result::Result::{Ok, Err};
     #[inline]
-    fn bsearch_range_value_table(c: char, r: &'static [(char, char)]) -> bool {
+    pub fn bsearch_range_table(c: char, r: &'static [(char,char)]) -> bool {
         use core::cmp::Ordering::{Equal, Less, Greater};
-        match r.binary_search_by(|&(lo, hi)| {
+        r.binary_search_by(|&(lo,hi)| {
+            if lo <= c && c <= hi { Equal }
+            else if hi < c { Less }
+            else { Greater }
+        }).is_ok()
+    }
+    
+    pub fn bsearch_range_value_table<T: Copy>(c: char, r: &'static [(char, char, T)]) -> Option<T> {
+        use core::cmp::Ordering::{Equal, Less, Greater};
+        match r.binary_search_by(|&(lo, hi, _)| {
             if lo <= c && c <= hi { Equal }
             else if hi < c { Less }
             else { Greater }
         }) {
-            Ok(_) => true,
-            Err(_) => false
+            Ok(idx) => {
+                let (_, _, cat) = r[idx];
+                Some(cat)
+            }
+            Err(_) => None
         }
     }
 
+}
+
+pub mod identifier {
     #[inline]
     pub fn identifier_status_allowed(c: char) -> bool {
         // FIXME: do we want to special case ASCII here?
         match c as usize {
-            _ => bsearch_range_value_table(c, identifier_status_table)
+            _ => super::util::bsearch_range_table(c, identifier_status_table)
         }
     }
-
-    // identifier status table.
+    // Identifier status table:
     const identifier_status_table: &'static [(char, char)] = &[
         ('\u{27}', '\u{27}'), ('\u{2d}', '\u{2e}'), ('\u{30}', '\u{3a}'), ('\u{41}', '\u{5a}'),
         ('\u{5f}', '\u{5f}'), ('\u{61}', '\u{7a}'), ('\u{b7}', '\u{b7}'), ('\u{c0}', '\u{d6}'),

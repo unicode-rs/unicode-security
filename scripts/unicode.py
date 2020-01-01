@@ -120,19 +120,57 @@ def emit_table(f, name, t_data, t_type = "&'static [(char, char)]", is_pub=True,
 def emit_identifier_module(f):
     f.write("pub mod identifier {")
     f.write("""
+
+    #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
+    #[allow(non_camel_case_types)]
+    /// https://www.unicode.org/reports/tr39/#Identifier_Status_and_Type
+    pub enum IdentifierType {
+        // Restricted
+        Not_Character,
+        Deprecated,
+        Default_Ignorable,
+        Not_NFKC,
+        Not_XID,
+        Exclusion,
+        Obsolete,
+        Technical,
+        Uncommon_Use,
+        Limited_Use,
+
+        // Allowed
+        Inclusion,
+        Recommended
+    }
     #[inline]
     pub fn identifier_status_allowed(c: char) -> bool {
         // FIXME: do we want to special case ASCII here?
         match c as usize {
-            _ => super::util::bsearch_range_table(c, identifier_status_table)
+            _ => super::util::bsearch_range_table(c, IDENTIFIER_STATUS)
+        }
+    }
+
+    #[inline]
+    pub fn identifier_type(c: char) -> Option<IdentifierType> {
+        // FIXME: do we want to special case ASCII here?
+        match c as usize {
+            _ => super::util::bsearch_range_value_table(c, IDENTIFIER_TYPE)
         }
     }
 """)
 
     f.write("    // Identifier status table:\n")
     identifier_status_table = load_properties("IdentifierStatus.txt")
-    emit_table(f, "identifier_status_table", identifier_status_table['Allowed'], "&'static [(char, char)]", is_pub=False,
+    emit_table(f, "IDENTIFIER_STATUS", identifier_status_table['Allowed'], "&'static [(char, char)]", is_pub=False,
             pfun=lambda x: "(%s,%s)" % (escape_char(x[0]), escape_char(x[1])))
+    identifier_type = load_properties("IdentifierType.txt")
+    type_table = []
+    for ty in identifier_type:
+        type_table.extend([(x, y, ty) for (x, y) in identifier_type[ty]])
+    
+    type_table.sort(key=lambda w: w[0])
+
+    emit_table(f, "IDENTIFIER_TYPE", type_table, "&'static [(char, char, IdentifierType)]", is_pub=False,
+            pfun=lambda x: "(%s,%s, IdentifierType::%s)" % (escape_char(x[0]), escape_char(x[1]), x[2]))
     f.write("}\n\n")
 
 def emit_util_mod(f):

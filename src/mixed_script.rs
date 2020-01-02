@@ -23,9 +23,10 @@ impl From<ScriptExtension> for AugmentedScriptSet {
         let mut jpan = false;
         let mut kore = false;
 
-        if ext == ScriptExtension::Single(Script::Common) ||
-           ext == ScriptExtension::Single(Script::Inherited) ||
-           ext.contains_script(Script::Han) {
+        if ext == ScriptExtension::Single(Script::Common)
+            || ext == ScriptExtension::Single(Script::Inherited)
+            || ext.contains_script(Script::Han)
+        {
             hanb = true;
             jpan = true;
             kore = true;
@@ -44,7 +45,9 @@ impl From<ScriptExtension> for AugmentedScriptSet {
         }
         Self {
             base: ext,
-            hanb, jpan, kore
+            hanb,
+            jpan,
+            kore,
         }
     }
 }
@@ -74,7 +77,7 @@ impl Default for AugmentedScriptSet {
 
 impl AugmentedScriptSet {
     /// Intersect this set with another
-    pub fn intersect_with(&mut self, other: Self)  {
+    pub fn intersect_with(&mut self, other: Self) {
         self.base.intersect_with(other.base);
         self.hanb = self.hanb && other.hanb;
         self.jpan = self.jpan && other.jpan;
@@ -83,13 +86,13 @@ impl AugmentedScriptSet {
 
     /// Check if the set is empty
     pub fn is_empty(&self) -> bool {
-        self.base.is_empty() && ! self.hanb && !self.jpan && !self.kore
+        self.base.is_empty() && !self.hanb && !self.jpan && !self.kore
     }
 
     /// Check if the set is "All" (Common or Inherited)
     pub fn is_all(&self) -> bool {
-        self.base == ScriptExtension::Single(Script::Common) ||
-        self.base == ScriptExtension::Single(Script::Inherited)
+        self.base == ScriptExtension::Single(Script::Common)
+            || self.base == ScriptExtension::Single(Script::Inherited)
     }
 
     /// Construct an AugmentedScriptSet for a given character

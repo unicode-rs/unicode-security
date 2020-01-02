@@ -2,8 +2,8 @@
 //! a string conforms to
 
 use crate::mixed_script::AugmentedScriptSet;
-use unicode_script::{Script, ScriptExtension};
 use crate::GeneralSecurityProfile;
+use unicode_script::{Script, ScriptExtension};
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 /// The [Restriction level](https://www.unicode.org/reports/tr39/#Restriction_Level_Detection)
@@ -24,13 +24,12 @@ pub enum RestrictionLevel {
 }
 
 /// Utilities for determining which [restriction level](https://www.unicode.org/reports/tr39/#Restriction_Level_Detection)
-/// a string satisfies 
+/// a string satisfies
 pub trait RestrictionLevelDetection: Sized {
     /// Detect the [restriction level](https://www.unicode.org/reports/tr39/#Restriction_Level_Detection)
     ///
     /// This will _not_ check identifier well-formedness, as different applications may have different notions of well-formedness
     fn detect_restriction_level(self) -> RestrictionLevel;
-
 
     /// Check if a string satisfies the supplied [restriction level](https://www.unicode.org/reports/tr39/#Restriction_Level_Detection)
     ///

@@ -64,6 +64,7 @@ pub mod restriction_level;
 
 pub use general_security_profile::GeneralSecurityProfile;
 pub use mixed_script::MixedScript;
+pub use restriction_level::{RestrictionLevel, RestrictionLevelDetection};
 
 #[rustfmt::skip]
 pub(crate) mod tables;

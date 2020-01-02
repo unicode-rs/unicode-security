@@ -73,12 +73,11 @@ impl Default for AugmentedScriptSet {
 
 impl AugmentedScriptSet {
     /// Intersect this set with another
-    pub fn intersect(mut self, other: Self) -> Self {
-        self.base = self.base.intersect(other.base);
+    pub fn intersect_with(&mut self, other: Self)  {
+        self.base.intersect_with(other.base);
         self.hanb = self.hanb && other.hanb;
         self.jpan = self.jpan && other.jpan;
         self.kore = self.kore && other.kore;
-        self
     }
 
     /// Check if the set is empty
@@ -101,7 +100,7 @@ impl AugmentedScriptSet {
     pub fn for_str(s: &str) -> Self {
         let mut set = AugmentedScriptSet::default();
         for ch in s.chars() {
-            set = set.intersect(ch.into())
+            set.intersect_with(ch.into())
         }
         set
     }

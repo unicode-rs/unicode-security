@@ -107,16 +107,6 @@ impl AugmentedScriptSet {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
-pub enum RestrictionLevel {
-    ASCIIOnly,
-    SingleScript,
-    HighlyRestrictive,
-    ModeratelyRestrictive,
-    MinimallyRestrictive,
-    Unrestricted,
-}
-
 /// Extension trait for [mixed-script detection](https://www.unicode.org/reports/tr39/#Mixed_Script_Detection)
 pub trait MixedScript {
     /// Check if a string is [single-script](https://www.unicode.org/reports/tr39/#def-single-script)
@@ -126,9 +116,6 @@ pub trait MixedScript {
 
     /// Find the [resolved script set](https://www.unicode.org/reports/tr39/#def-resolved-script-set) of a given string
     fn resolve_script_set(self) -> AugmentedScriptSet;
-
-    /// Detect the [restriction level](https://www.unicode.org/reports/tr39/#Restriction_Level_Detection) of a given string
-    fn detect_restriction_level(self) -> RestrictionLevel;
 }
 
 impl MixedScript for &'_ str {
@@ -138,37 +125,5 @@ impl MixedScript for &'_ str {
 
     fn resolve_script_set(self) -> AugmentedScriptSet {
         self.into()
-    }
-
-    fn detect_restriction_level(self) -> RestrictionLevel {
-        use crate::GeneralSecurityProfile;
-        let mut ascii_only = true;
-        let mut set = AugmentedScriptSet::default();
-        let mut exclude_latin_set = AugmentedScriptSet::default();
-        for ch in self.chars() {
-            if !GeneralSecurityProfile::identifier_allowed(ch) {
-                return RestrictionLevel::Unrestricted;
-            }
-            if ch as u32 > 0x7F {
-                ascii_only = false;
-            }
-            let ch_set = ch.into();
-            set = set.intersect(ch_set);
-            if !ch_set.base.contains_script(Script::Latin) {
-                exclude_latin_set.intersect(ch_set);
-            }
-        }
-        if ascii_only {
-            return RestrictionLevel::ASCIIOnly;
-        } else if !set.is_empty() {
-            return RestrictionLevel::SingleScript;
-        } else if exclude_latin_set.kore || exclude_latin_set.hanb || exclude_latin_set.jpan {
-            return RestrictionLevel::HighlyRestrictive;
-        } else if let ScriptExtension::Single(script) = exclude_latin_set.base {
-            if script.is_recommended() && script != Script::Cyrillic && script != Script::Greek {
-                return RestrictionLevel::ModeratelyRestrictive;
-            }
-        }
-        return RestrictionLevel::MinimallyRestrictive;
     }
 }

@@ -16,8 +16,11 @@ pub trait GeneralSecurityProfile {
 
 impl GeneralSecurityProfile for char {
     #[inline]
-    fn identifier_allowed(self) -> bool { identifier::identifier_status_allowed(self) }
+    fn identifier_allowed(self) -> bool {
+        identifier::identifier_status_allowed(self)
+    }
     #[inline]
-    fn identifier_type(self) -> Option<IdentifierType> { identifier::identifier_type(self) }
-
+    fn identifier_type(self) -> Option<IdentifierType> {
+        identifier::identifier_type(self)
+    }
 }

@@ -21,7 +21,7 @@
 //!     let ch = 'µ'; // U+00B5 MICRO SIGN
 //!     let allowed = 'µ'.identifier_allowed();
 //!     println!("{}", ch);
-//!     println!("The above char is {} in unicode identifiers.", 
+//!     println!("The above char is {} in unicode identifiers.",
 //!              if allowed { "allowed" } else { "restricted" });
 //! }
 //! ```
@@ -42,9 +42,10 @@
 //! ```
 
 #![deny(missing_docs, unsafe_code)]
-#![doc(html_logo_url = "https://unicode-rs.github.io/unicode-rs_sm.png",
-       html_favicon_url = "https://unicode-rs.github.io/unicode-rs_sm.png")]
-
+#![doc(
+    html_logo_url = "https://unicode-rs.github.io/unicode-rs_sm.png",
+    html_favicon_url = "https://unicode-rs.github.io/unicode-rs_sm.png"
+)]
 #![cfg_attr(feature = "bench", feature(test))]
 #![no_std]
 
@@ -57,12 +58,12 @@ extern crate test;
 
 pub use tables::UNICODE_VERSION;
 
-pub mod mixed_script;
 pub mod general_security_profile;
+pub mod mixed_script;
 pub mod restriction_level;
 
-pub use mixed_script::MixedScript;
 pub use general_security_profile::GeneralSecurityProfile;
+pub use mixed_script::MixedScript;
 
 #[rustfmt::skip]
 pub(crate) mod tables;

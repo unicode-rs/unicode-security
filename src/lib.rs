@@ -59,6 +59,7 @@ pub use tables::UNICODE_VERSION;
 
 pub mod mixed_script;
 pub mod general_security_profile;
+pub mod restriction_level;
 
 pub use mixed_script::MixedScript;
 pub use general_security_profile::GeneralSecurityProfile;

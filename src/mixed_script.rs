@@ -5,6 +5,7 @@ use unicode_script::{Script, ScriptExtension};
 /// An Augmented script set, as defined by UTS 39
 ///
 /// https://www.unicode.org/reports/tr39/#def-augmented-script-set
+#[derive(Copy, Clone, PartialEq, Debug, Hash)]
 pub struct AugmentedScriptSet {
     /// The base ScriptExtension value
     pub base: ScriptExtension,

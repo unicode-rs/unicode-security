@@ -34,7 +34,7 @@ preamble = '''// Copyright 2012-2015 The Rust Project Developers. See the COPYRI
 #![allow(missing_docs, non_upper_case_globals, non_snake_case)]
 '''
 
-UNICODE_VERSION = (12, 1, 0)
+UNICODE_VERSION = (13, 0, 0)
 
 UNICODE_VERSION_NUMBER = "%s.%s.%s" %UNICODE_VERSION
 
@@ -54,7 +54,7 @@ def load_properties(f, interestingprops = None):
     re1 = re.compile(r"^ *([0-9A-F]+) *; *(\w+)")
     re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *(\w+)")
 
-    for line in fileinput.input(os.path.basename(f)):
+    for line in fileinput.input(os.path.basename(f), openhook=fileinput.hook_encoded("utf-8")):
         prop = None
         d_lo = 0
         d_hi = 0

@@ -58,3 +58,14 @@ fn test_mixed_script() {
     assert_eq!("夏の幻ㄒㄧㄤ".resolve_script_set().is_empty(), true);
     assert_eq!("夏の幻ㄒㄧㄤ".resolve_script_set().is_all(), false);
 }
+
+#[test]
+fn test_confusable_detection() {
+    use crate::skeleton;
+    use std::string::String;
+    assert_eq!(&skeleton("").collect::<String>(), "");
+    assert_eq!(&skeleton("ｓ").collect::<String>(), "s");
+    assert_eq!(&skeleton("ｓｓｓ").collect::<String>(), "sss");
+    assert_eq!(&skeleton("ﶛ").collect::<String>(), "نمى");
+    assert_eq!(&skeleton("ﶛﶛ").collect::<String>(), "نمىنمى");
+}

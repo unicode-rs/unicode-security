@@ -17,6 +17,7 @@ exclude = [ "target/*", "Cargo.lock" ]
 
 [dependencies]
 unicode-script = { version = "0.4.0", default-features = false }
+unicode-normalization = { version = "0.1.12", default-features = false }
 std = { version = "1.0", package = "rustc-std-workspace-std", optional = true }
 core = { version = "1.0", package = "rustc-std-workspace-core", optional = true }
 compiler_builtins = { version = "0.1", optional = true }

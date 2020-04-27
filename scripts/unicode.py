@@ -34,7 +34,7 @@ preamble = '''// Copyright 2012-2015 The Rust Project Developers. See the COPYRI
 #![allow(missing_docs, non_upper_case_globals, non_snake_case)]
 '''
 
-UNICODE_VERSION = (12, 1, 0)
+UNICODE_VERSION = (13, 0, 0)
 
 UNICODE_VERSION_NUMBER = "%s.%s.%s" %UNICODE_VERSION
 
@@ -54,7 +54,7 @@ def load_properties(f, interestingprops = None):
     re1 = re.compile(r"^ *([0-9A-F]+) *; *(\w+)")
     re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *(\w+)")
 
-    for line in fileinput.input(os.path.basename(f)):
+    for line in fileinput.input(os.path.basename(f), openhook=fileinput.hook_encoded("utf-8")):
         prop = None
         d_lo = 0
         d_hi = 0
@@ -81,6 +81,28 @@ def load_properties(f, interestingprops = None):
 
     return props
 
+def load_confusables(f):
+    fetch(f)
+    confusables = []
+    re1 = re.compile(r"^((?:[0-9A-F]+ )+);\t((?:[0-9A-F]+ )+);\t\w*")
+
+    for line in fileinput.input(os.path.basename(f), openhook=fileinput.hook_encoded("utf-8")):
+        d_input = 0
+        d_outputs = []
+        m = re1.match(line)
+        if not m:
+            continue
+        d_inputs = m.group(1).split()
+        if len(d_inputs) != 1:
+            raise Exception('More than one code point in first column')
+        d_input = int(d_inputs[0].strip(), 16)
+        for d_output in m.group(2).split():
+            d_outputitem = int(d_output, 16);
+            d_outputs.append(d_outputitem);
+        confusables.append((d_input, d_outputs))
+
+    return confusables
+
 def format_table_content(f, content, indent):
     line = " "*indent
     first = True
@@ -98,6 +120,18 @@ def format_table_content(f, content, indent):
 
 def escape_char(c):
     return "'\\u{%x}'" % c
+
+def escape_char_list(l):
+    line = "[";
+    first = True;
+    for c in l:
+        if first:
+            line += escape_char(c);
+        else:
+            line += ", " + escape_char(c);
+        first = False;
+    line += "]";
+    return line
 
 def emit_table(f, name, t_data, t_type = "&'static [(char, char)]", is_pub=True,
         pfun=lambda x: "(%s,%s)" % (escape_char(x[0]), escape_char(x[1])), is_const=True):
@@ -173,10 +207,51 @@ def emit_identifier_module(f):
             pfun=lambda x: "(%s,%s, IdentifierType::%s)" % (escape_char(x[0]), escape_char(x[1]), x[2]))
     f.write("}\n\n")
 
+def emit_confusable_detection_module(f):
+    f.write("pub mod confusable_detection {")
+    f.write("""
+
+    #[inline]
+    pub fn char_confusable_prototype(c: char) -> Option<&'static [char]> {
+        // FIXME: do we want to special case ASCII here?
+        match c as usize {
+            _ => super::util::bsearch_value_table(c, CONFUSABLES)
+        }
+    }
+
+""")
+
+    f.write("    // Confusable table:\n")
+    confusable_table = load_confusables("confusables.txt")
+    confusable_table.sort(key=lambda w: w[0])
+    
+    last_key = None
+    for (k, v) in confusable_table:
+        if k == last_key:
+            raise Exception("duplicate keys in confusables table: %s" % k)
+        last_key = k
+
+    emit_table(f, "CONFUSABLES", confusable_table, "&'static [(char, &'static [char])]", is_pub=False,
+            pfun=lambda x: "(%s, &%s)" % (escape_char(x[0]), escape_char_list(x[1])))
+    f.write("}\n\n")
+
+
 def emit_util_mod(f):
     f.write("""
 pub mod util {
     use core::result::Result::{Ok, Err};
+    
+    #[inline]
+    pub fn bsearch_value_table<T: Copy>(c: char, r: &'static [(char, T)]) -> Option<T> {
+        match r.binary_search_by_key(&c, |&(k, _)| k) {
+            Ok(idx) => {
+                let (_, v) = r[idx];
+                Some(v)
+            }
+            Err(_) => None
+        }
+    }
+    
     #[inline]
     pub fn bsearch_range_table(c: char, r: &'static [(char,char)]) -> bool {
         use core::cmp::Ordering::{Equal, Less, Greater};
@@ -224,3 +299,5 @@ pub const UNICODE_VERSION: (u64, u64, u64) = (%s, %s, %s);
         emit_util_mod(rf)
         ### identifier module
         emit_identifier_module(rf)
+        ### confusable_detection module
+        emit_confusable_detection_module(rf)

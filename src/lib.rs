@@ -62,11 +62,13 @@ pub mod confusable_detection;
 pub mod general_security_profile;
 pub mod mixed_script;
 pub mod restriction_level;
+pub mod rustc_mixed_script_confusable_detection;
 
 pub use confusable_detection::skeleton;
 pub use general_security_profile::GeneralSecurityProfile;
 pub use mixed_script::MixedScript;
 pub use restriction_level::{RestrictionLevel, RestrictionLevelDetection};
+pub use rustc_mixed_script_confusable_detection::rustc_mixed_script_confusable_codepoint;
 
 #[rustfmt::skip]
 pub(crate) mod tables;

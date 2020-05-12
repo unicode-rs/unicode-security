@@ -148,9 +148,11 @@ def load_confusables(f):
     return confusables
 
 def aliases():
-    """
-    Fetch the shorthand aliases for each longhand Script name
-    """
+    # This function is taken from the `unicode-script` crate. If significant
+    # changes are introduced, update accordingly.
+    
+    # Note that this file is in UCD directly, not security directory.
+    # we use `fetch_unidata` function to download it.
     fetch_unidata("PropertyValueAliases.txt")
     longforms = {}
     shortforms = {}
@@ -170,6 +172,9 @@ def aliases():
     return (longforms, shortforms)
 
 def load_scripts(f):
+    # This function is taken from the `unicode-script` crate. If significant
+    # changes are introduced, update accordingly.
+    
     (longforms, shortforms) = aliases()
     scripts = load_script_properties(f, [])
 
@@ -235,7 +240,15 @@ def is_codepoint_identifier_allowed(c, identifier_allowed):
     return False
 
 def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
+    # First, load all confusables data from confusables.txt
     confusables = load_confusables(f)
+    
+    # The confusables.txt is reductive, means that it is intended to be used in
+    # on the fly substitutions. The code points that didn't occur in the file can be
+    # seen as substitutes to itself. So if the confusables.txt says A -> C, B -> C,
+    # and implicitly C -> C, it means A <-> B, A <-> C, B <-> C are confusable.
+    
+    # here we first make a dict that contains all As and Bs whose corresponding C is single code point.
     seekup_map = {}
     for item in confusables:
         d_proto_list = item[1]
@@ -243,23 +256,36 @@ def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
         assert(len(d_proto_list) > 0)
         if len(d_proto_list) == 1:
             seekup_map[escape_char(d_source)] = d_proto_list
-    # collect prototypes
+
+    # Here we're dividing all confusable lhs and rhs(prototype) operands of the substitution into equivalence classes.
+    # Principally we'll be using the rhs operands as the representive element of its equivalence classes.
+    # However some rhs operands are single code point, while some others are not.
+    # Here we collect them separately into `codepoint_map` and `multicodepoint_map`.
     codepoint_map = {}
     multicodepoint_map = {}
     for item in confusables:
         d_source = item[0]
+        # According to the RFC, we'll skip those code points that are restricted from identifier usage.
         if not is_codepoint_identifier_allowed(d_source, identifier_allowed):
             continue
         d_proto_list = item[1]
         if len(d_proto_list) == 1:
             d_proto = escape_char(d_proto_list[0])
+            # we use the escaped representation of rhs as key to the dict when creating new equivalence class.
             if d_proto not in codepoint_map:
                 codepoint_map[d_proto] = []
+                # when we create new equivalence class, we'll check whether the representative element should be collected.
+                # i.e. if it is not subject to substituion, and not restricted from identifier usage,
+                # we collect it into the equivalence class.
                 if d_proto not in seekup_map and is_codepoint_identifier_allowed(d_proto_list[0], identifier_allowed):
                     codepoint_map[d_proto].append(d_proto_list[0])
+            # we collect the original code point to be substituted into this list.
             codepoint_map[d_proto].append(d_source)
         else:
             d_protos = escape_char_list(d_proto_list)
+            # difference in multi code point case: the rhs part is not directly usable, however we store it in
+            # dict for further special examination between each lhs and this multi code point rhs.
+            # and there's an extra level of tuple here.
             if d_protos not in multicodepoint_map:
                 multicodepoint_map[d_protos] = (d_proto_list, [])
             multicodepoint_map[d_protos][1].append(d_source)
@@ -274,24 +300,33 @@ def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
             script_entry[item_text] = (item, [])
         return script_entry[item_text][1]
 
-    # between single charpoint that has single charpoint prototype
+    # First let's examine the each code point having single code point prototype case.
     for _, source in codepoint_map.items():
         source_len = len(source)
+        # Examine each pair in the equivalence class
         for i in range(0, source_len - 1):
             for j in range(i + 1, source_len):
                 item_i, item_j = source[i], source[j]
                 script_i, script_j = codepoint_script(item_i, scripts), codepoint_script(item_j, scripts)
+                # If they're in the same script, just skip this pair.
                 if script_i == script_j:
                     continue
+                # If `item_i` (the first) is not in a non-ignored script, and `item_j` (the second) is in a differnt one (maybe ignored),
+                # this means that this usage of the `item_i` can be suspicious, when it occurs in a document that is written in `script_j`.
+                # We'll consider it a mixed_script_confusable code point.
                 if not is_script_ignored_in_mixedscript(script_i):
+                    # store it within the map, saving as much information as possible, for further investigation on the final results.
                     confusable_entry_item(mixedscript_confusable, script_i, escape_char(item_i), item_i).append(item_j)
+                # Do the same in reverse from `item_j` to `item_i` 
                 if not is_script_ignored_in_mixedscript(script_j):
                     confusable_entry_item(mixedscript_confusable, script_j, escape_char(item_j), item_j).append(item_i)
 
-    # between single charpoint that has multi charpoint prototype
+    # Then let's examine the each code point having multiple code point prototype case.
+    # We'll check between the code points that shares the same prototype
     for _, proto_lst_and_source in multicodepoint_map.items():
         source = proto_lst_and_source[1]
         source_len = len(source)
+        # This is basically the same as the single code point case.
         for i in range(0, source_len - 1):
             for j in range(i + 1, source_len):
                 item_i, item_j = source[i], source[j]
@@ -304,10 +339,11 @@ def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
                     confusable_entry_item(mixedscript_confusable, script_j, escape_char(item_j), item_j).append(item_i)
 
     mixedscript_confusable_unresolved = {}
-    # single charpoint that has multi charpoint prototype and its prototype
+    # We'll also check between each code points and its multiple codepoint prototype
     for _, proto_lst_and_source in multicodepoint_map.items():
         proto_lst = proto_lst_and_source[0]
         proto_lst_can_be_part_of_identifier = True
+        # If the prototype contains one or more restricted code point, then we skip it.
         for c in proto_lst:
             if not is_codepoint_identifier_allowed(c, identifier_allowed):
                 proto_lst_can_be_part_of_identifier = False
@@ -318,15 +354,25 @@ def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
         source_len = len(source)
         for i in range(0, source_len):
             item_i = source[i]
+            # So here we're just checking whether the single code point should be considered confusable.
             script_i = codepoint_script(item_i, scripts)
+            # If it's in ignored script, we don't need to do anything here.
             if is_script_ignored_in_mixedscript(script_i):
                 continue
+            # Here're some rules on examining whether the single code point should be considered confusable.
+            # The principle is that, when subsitution happens, no new non-ignored script are introduced, and its
+            # own script is not lost.
             processed, should_add = process_mixedscript_single_to_multi(item_i, script_i, proto_lst, scripts)
             if should_add:
                 assert(processed)
+                # Mark the single code point as confusable.
                 confusable_entry_item(mixedscript_confusable, script_i, escape_char(item_i), item_i).append('multi')
             if processed:
+                # Finished dealing with this code point.
                 continue
+            # If it's not processed we must be dealing with a newer version Unicode data, which introduced some significant
+            # changes. We don't throw an exception here, instead we collect it into a table for debugging purpose, and throw
+            # an exception after we returned and printed the table out.
             proto_lst_text = escape_char_list(proto_lst)
             if not proto_lst_text in mixedscript_confusable_unresolved:
                 mixedscript_confusable_unresolved[proto_lst_text] = (proto_lst, [])

@@ -19,7 +19,12 @@ pub const UNICODE_VERSION: (u64, u64, u64) = (13, 0, 0);
 
 pub mod util {
     use core::result::Result::{Ok, Err};
-    
+
+    #[inline]
+    pub fn bsearch_table(c: char, r: &'static [char]) -> bool {
+        r.binary_search(&c).is_ok()
+    }
+
     #[inline]
     pub fn bsearch_value_table<T: Copy>(c: char, r: &'static [(char, T)]) -> Option<T> {
         match r.binary_search_by_key(&c, |&(k, _)| k) {
@@ -30,7 +35,7 @@ pub mod util {
             Err(_) => None
         }
     }
-    
+
     #[inline]
     pub fn bsearch_range_table(c: char, r: &'static [(char,char)]) -> bool {
         use core::cmp::Ordering::{Equal, Less, Greater};
@@ -40,7 +45,7 @@ pub mod util {
             else { Greater }
         }).is_ok()
     }
-    
+
     pub fn bsearch_range_value_table<T: Copy>(c: char, r: &'static [(char, char, T)]) -> Option<T> {
         use core::cmp::Ordering::{Equal, Less, Greater};
         match r.binary_search_by(|&(lo, hi, _)| {
@@ -4220,157 +4225,66 @@ pub mod confusable_detection {
 
 }
 
-pub mod rustc_mixed_script_confusable_detection {
-    use unicode_script::Script;
-
+pub mod potential_mixed_script_confusable {
     #[inline]
-    pub fn is_rustc_mixed_script_confusable(c: char) -> Option<Script> {
+    pub fn potential_mixed_script_confusable(c: char) -> bool {
         match c as usize {
-            _ => super::util::bsearch_value_table(c, CONFUSABLES)
+            _ => super::util::bsearch_table(c, CONFUSABLES)
         }
     }
-
-    const CONFUSABLES: &'static [(char, Script)] = &[
-        ('\u{41}', Script::Latin), ('\u{42}', Script::Latin), ('\u{43}', Script::Latin), ('\u{45}',
-        Script::Latin), ('\u{48}', Script::Latin), ('\u{49}', Script::Latin), ('\u{4a}',
-        Script::Latin), ('\u{4b}', Script::Latin), ('\u{4d}', Script::Latin), ('\u{4e}',
-        Script::Latin), ('\u{4f}', Script::Latin), ('\u{50}', Script::Latin), ('\u{53}',
-        Script::Latin), ('\u{54}', Script::Latin), ('\u{55}', Script::Latin), ('\u{56}',
-        Script::Latin), ('\u{57}', Script::Latin), ('\u{58}', Script::Latin), ('\u{59}',
-        Script::Latin), ('\u{5a}', Script::Latin), ('\u{61}', Script::Latin), ('\u{62}',
-        Script::Latin), ('\u{63}', Script::Latin), ('\u{65}', Script::Latin), ('\u{66}',
-        Script::Latin), ('\u{67}', Script::Latin), ('\u{68}', Script::Latin), ('\u{69}',
-        Script::Latin), ('\u{6a}', Script::Latin), ('\u{6c}', Script::Latin), ('\u{6e}',
-        Script::Latin), ('\u{6f}', Script::Latin), ('\u{70}', Script::Latin), ('\u{71}',
-        Script::Latin), ('\u{72}', Script::Latin), ('\u{73}', Script::Latin), ('\u{75}',
-        Script::Latin), ('\u{76}', Script::Latin), ('\u{77}', Script::Latin), ('\u{78}',
-        Script::Latin), ('\u{79}', Script::Latin), ('\u{c6}', Script::Latin), ('\u{c7}',
-        Script::Latin), ('\u{df}', Script::Latin), ('\u{e6}', Script::Latin), ('\u{e7}',
-        Script::Latin), ('\u{f6}', Script::Latin), ('\u{127}', Script::Latin), ('\u{131}',
-        Script::Latin), ('\u{138}', Script::Latin), ('\u{18f}', Script::Latin), ('\u{259}',
-        Script::Latin), ('\u{391}', Script::Greek), ('\u{392}', Script::Greek), ('\u{393}',
-        Script::Greek), ('\u{395}', Script::Greek), ('\u{396}', Script::Greek), ('\u{397}',
-        Script::Greek), ('\u{398}', Script::Greek), ('\u{399}', Script::Greek), ('\u{39a}',
-        Script::Greek), ('\u{39b}', Script::Greek), ('\u{39c}', Script::Greek), ('\u{39d}',
-        Script::Greek), ('\u{39f}', Script::Greek), ('\u{3a0}', Script::Greek), ('\u{3a1}',
-        Script::Greek), ('\u{3a4}', Script::Greek), ('\u{3a5}', Script::Greek), ('\u{3a6}',
-        Script::Greek), ('\u{3a7}', Script::Greek), ('\u{3b1}', Script::Greek), ('\u{3b2}',
-        Script::Greek), ('\u{3b3}', Script::Greek), ('\u{3b4}', Script::Greek), ('\u{3b5}',
-        Script::Greek), ('\u{3b8}', Script::Greek), ('\u{3b9}', Script::Greek), ('\u{3ba}',
-        Script::Greek), ('\u{3bd}', Script::Greek), ('\u{3bf}', Script::Greek), ('\u{3c0}',
-        Script::Greek), ('\u{3c1}', Script::Greek), ('\u{3c3}', Script::Greek), ('\u{3c4}',
-        Script::Greek), ('\u{3c5}', Script::Greek), ('\u{3c6}', Script::Greek), ('\u{404}',
-        Script::Cyrillic), ('\u{405}', Script::Cyrillic), ('\u{406}', Script::Cyrillic), ('\u{408}',
-        Script::Cyrillic), ('\u{410}', Script::Cyrillic), ('\u{411}', Script::Cyrillic), ('\u{412}',
-        Script::Cyrillic), ('\u{413}', Script::Cyrillic), ('\u{415}', Script::Cyrillic), ('\u{417}',
-        Script::Cyrillic), ('\u{41a}', Script::Cyrillic), ('\u{41b}', Script::Cyrillic), ('\u{41c}',
-        Script::Cyrillic), ('\u{41d}', Script::Cyrillic), ('\u{41e}', Script::Cyrillic), ('\u{41f}',
-        Script::Cyrillic), ('\u{420}', Script::Cyrillic), ('\u{421}', Script::Cyrillic), ('\u{422}',
-        Script::Cyrillic), ('\u{423}', Script::Cyrillic), ('\u{424}', Script::Cyrillic), ('\u{425}',
-        Script::Cyrillic), ('\u{42b}', Script::Cyrillic), ('\u{42c}', Script::Cyrillic), ('\u{42e}',
-        Script::Cyrillic), ('\u{430}', Script::Cyrillic), ('\u{431}', Script::Cyrillic), ('\u{433}',
-        Script::Cyrillic), ('\u{435}', Script::Cyrillic), ('\u{43a}', Script::Cyrillic), ('\u{43e}',
-        Script::Cyrillic), ('\u{43f}', Script::Cyrillic), ('\u{440}', Script::Cyrillic), ('\u{441}',
-        Script::Cyrillic), ('\u{442}', Script::Cyrillic), ('\u{443}', Script::Cyrillic), ('\u{444}',
-        Script::Cyrillic), ('\u{445}', Script::Cyrillic), ('\u{454}', Script::Cyrillic), ('\u{455}',
-        Script::Cyrillic), ('\u{456}', Script::Cyrillic), ('\u{458}', Script::Cyrillic), ('\u{45b}',
-        Script::Cyrillic), ('\u{48c}', Script::Cyrillic), ('\u{48d}', Script::Cyrillic), ('\u{490}',
-        Script::Cyrillic), ('\u{491}', Script::Cyrillic), ('\u{492}', Script::Cyrillic), ('\u{493}',
-        Script::Cyrillic), ('\u{498}', Script::Cyrillic), ('\u{49e}', Script::Cyrillic), ('\u{49f}',
-        Script::Cyrillic), ('\u{4aa}', Script::Cyrillic), ('\u{4ab}', Script::Cyrillic), ('\u{4ae}',
-        Script::Cyrillic), ('\u{4af}', Script::Cyrillic), ('\u{4b0}', Script::Cyrillic), ('\u{4b1}',
-        Script::Cyrillic), ('\u{4bb}', Script::Cyrillic), ('\u{4bd}', Script::Cyrillic), ('\u{4bf}',
-        Script::Cyrillic), ('\u{4c0}', Script::Cyrillic), ('\u{4c7}', Script::Cyrillic), ('\u{4c9}',
-        Script::Cyrillic), ('\u{4cd}', Script::Cyrillic), ('\u{4cf}', Script::Cyrillic), ('\u{4d4}',
-        Script::Cyrillic), ('\u{4d5}', Script::Cyrillic), ('\u{4d8}', Script::Cyrillic), ('\u{4d9}',
-        Script::Cyrillic), ('\u{4e0}', Script::Cyrillic), ('\u{4e8}', Script::Cyrillic), ('\u{4e9}',
-        Script::Cyrillic), ('\u{511}', Script::Cyrillic), ('\u{51b}', Script::Cyrillic), ('\u{51c}',
-        Script::Cyrillic), ('\u{51d}', Script::Cyrillic), ('\u{53b}', Script::Armenian), ('\u{544}',
-        Script::Armenian), ('\u{548}', Script::Armenian), ('\u{54a}', Script::Armenian), ('\u{54c}',
-        Script::Armenian), ('\u{54d}', Script::Armenian), ('\u{54f}', Script::Armenian), ('\u{553}',
-        Script::Armenian), ('\u{555}', Script::Armenian), ('\u{561}', Script::Armenian), ('\u{563}',
-        Script::Armenian), ('\u{566}', Script::Armenian), ('\u{56e}', Script::Armenian), ('\u{570}',
-        Script::Armenian), ('\u{571}', Script::Armenian), ('\u{578}', Script::Armenian), ('\u{57a}',
-        Script::Armenian), ('\u{57c}', Script::Armenian), ('\u{57d}', Script::Armenian), ('\u{581}',
-        Script::Armenian), ('\u{584}', Script::Armenian), ('\u{585}', Script::Armenian), ('\u{5b4}',
-        Script::Hebrew), ('\u{5d5}', Script::Hebrew), ('\u{5d8}', Script::Hebrew), ('\u{5d9}',
-        Script::Hebrew), ('\u{5df}', Script::Hebrew), ('\u{5e1}', Script::Hebrew), ('\u{5f0}',
-        Script::Hebrew), ('\u{5f1}', Script::Hebrew), ('\u{5f2}', Script::Hebrew), ('\u{5f3}',
-        Script::Hebrew), ('\u{5f4}', Script::Hebrew), ('\u{625}', Script::Arabic), ('\u{627}',
-        Script::Arabic), ('\u{629}', Script::Arabic), ('\u{647}', Script::Arabic), ('\u{660}',
-        Script::Arabic), ('\u{661}', Script::Arabic), ('\u{665}', Script::Arabic), ('\u{667}',
-        Script::Arabic), ('\u{668}', Script::Arabic), ('\u{669}', Script::Arabic), ('\u{6be}',
-        Script::Arabic), ('\u{6c1}', Script::Arabic), ('\u{6c3}', Script::Arabic), ('\u{6d5}',
-        Script::Arabic), ('\u{6f0}', Script::Arabic), ('\u{6f1}', Script::Arabic), ('\u{6f5}',
-        Script::Arabic), ('\u{6f7}', Script::Arabic), ('\u{6f8}', Script::Arabic), ('\u{6f9}',
-        Script::Arabic), ('\u{6ff}', Script::Arabic), ('\u{901}', Script::Devanagari), ('\u{902}',
-        Script::Devanagari), ('\u{903}', Script::Devanagari), ('\u{93c}', Script::Devanagari),
-        ('\u{93d}', Script::Devanagari), ('\u{941}', Script::Devanagari), ('\u{942}',
-        Script::Devanagari), ('\u{946}', Script::Devanagari), ('\u{94d}', Script::Devanagari),
-        ('\u{966}', Script::Devanagari), ('\u{967}', Script::Devanagari), ('\u{968}',
-        Script::Devanagari), ('\u{969}', Script::Devanagari), ('\u{96a}', Script::Devanagari),
-        ('\u{96e}', Script::Devanagari), ('\u{971}', Script::Devanagari), ('\u{981}',
-        Script::Bengali), ('\u{983}', Script::Bengali), ('\u{9bc}', Script::Bengali), ('\u{9e6}',
-        Script::Bengali), ('\u{9ea}', Script::Bengali), ('\u{9ed}', Script::Bengali), ('\u{a02}',
-        Script::Gurmukhi), ('\u{a03}', Script::Gurmukhi), ('\u{a3c}', Script::Gurmukhi), ('\u{a4b}',
-        Script::Gurmukhi), ('\u{a4d}', Script::Gurmukhi), ('\u{a66}', Script::Gurmukhi), ('\u{a67}',
-        Script::Gurmukhi), ('\u{a6a}', Script::Gurmukhi), ('\u{a81}', Script::Gujarati), ('\u{a82}',
-        Script::Gujarati), ('\u{a83}', Script::Gujarati), ('\u{abc}', Script::Gujarati), ('\u{abd}',
-        Script::Gujarati), ('\u{ac1}', Script::Gujarati), ('\u{ac2}', Script::Gujarati), ('\u{acd}',
-        Script::Gujarati), ('\u{ae6}', Script::Gujarati), ('\u{ae8}', Script::Gujarati), ('\u{ae9}',
-        Script::Gujarati), ('\u{aea}', Script::Gujarati), ('\u{aee}', Script::Gujarati), ('\u{b01}',
-        Script::Oriya), ('\u{b03}', Script::Oriya), ('\u{b20}', Script::Oriya), ('\u{b3c}',
-        Script::Oriya), ('\u{b66}', Script::Oriya), ('\u{b68}', Script::Oriya), ('\u{b82}',
-        Script::Tamil), ('\u{b89}', Script::Tamil), ('\u{b90}', Script::Tamil), ('\u{b9c}',
-        Script::Tamil), ('\u{ba3}', Script::Tamil), ('\u{bb4}', Script::Tamil), ('\u{bb6}',
-        Script::Tamil), ('\u{bbf}', Script::Tamil), ('\u{bcd}', Script::Tamil), ('\u{be6}',
-        Script::Tamil), ('\u{be8}', Script::Tamil), ('\u{c02}', Script::Telugu), ('\u{c03}',
-        Script::Telugu), ('\u{c05}', Script::Telugu), ('\u{c06}', Script::Telugu), ('\u{c07}',
-        Script::Telugu), ('\u{c12}', Script::Telugu), ('\u{c13}', Script::Telugu), ('\u{c14}',
-        Script::Telugu), ('\u{c1c}', Script::Telugu), ('\u{c1e}', Script::Telugu), ('\u{c23}',
-        Script::Telugu), ('\u{c2f}', Script::Telugu), ('\u{c31}', Script::Telugu), ('\u{c32}',
-        Script::Telugu), ('\u{c66}', Script::Telugu), ('\u{c67}', Script::Telugu), ('\u{c68}',
-        Script::Telugu), ('\u{c6f}', Script::Telugu), ('\u{c82}', Script::Kannada), ('\u{c83}',
-        Script::Kannada), ('\u{c85}', Script::Kannada), ('\u{c86}', Script::Kannada), ('\u{c87}',
-        Script::Kannada), ('\u{c92}', Script::Kannada), ('\u{c93}', Script::Kannada), ('\u{c94}',
-        Script::Kannada), ('\u{c9c}', Script::Kannada), ('\u{c9e}', Script::Kannada), ('\u{ca3}',
-        Script::Kannada), ('\u{caf}', Script::Kannada), ('\u{cb1}', Script::Kannada), ('\u{cb2}',
-        Script::Kannada), ('\u{ce6}', Script::Kannada), ('\u{ce7}', Script::Kannada), ('\u{ce8}',
-        Script::Kannada), ('\u{cef}', Script::Kannada), ('\u{d02}', Script::Malayalam), ('\u{d03}',
-        Script::Malayalam), ('\u{d09}', Script::Malayalam), ('\u{d1c}', Script::Malayalam),
-        ('\u{d20}', Script::Malayalam), ('\u{d23}', Script::Malayalam), ('\u{d34}',
-        Script::Malayalam), ('\u{d36}', Script::Malayalam), ('\u{d3a}', Script::Malayalam),
-        ('\u{d3f}', Script::Malayalam), ('\u{d40}', Script::Malayalam), ('\u{d4e}',
-        Script::Malayalam), ('\u{d66}', Script::Malayalam), ('\u{d6d}', Script::Malayalam),
-        ('\u{d82}', Script::Sinhala), ('\u{d83}', Script::Sinhala), ('\u{e08}', Script::Thai),
-        ('\u{e1a}', Script::Thai), ('\u{e1b}', Script::Thai), ('\u{e1d}', Script::Thai), ('\u{e1e}',
-        Script::Thai), ('\u{e1f}', Script::Thai), ('\u{e22}', Script::Thai), ('\u{e34}',
-        Script::Thai), ('\u{e35}', Script::Thai), ('\u{e36}', Script::Thai), ('\u{e37}',
-        Script::Thai), ('\u{e38}', Script::Thai), ('\u{e39}', Script::Thai), ('\u{e48}',
-        Script::Thai), ('\u{e49}', Script::Thai), ('\u{e4a}', Script::Thai), ('\u{e4b}',
-        Script::Thai), ('\u{e4d}', Script::Thai), ('\u{e50}', Script::Thai), ('\u{e88}',
-        Script::Lao), ('\u{e8d}', Script::Lao), ('\u{e9a}', Script::Lao), ('\u{e9b}', Script::Lao),
-        ('\u{e9d}', Script::Lao), ('\u{e9e}', Script::Lao), ('\u{e9f}', Script::Lao), ('\u{eb8}',
-        Script::Lao), ('\u{eb9}', Script::Lao), ('\u{ec8}', Script::Lao), ('\u{ec9}', Script::Lao),
-        ('\u{eca}', Script::Lao), ('\u{ecb}', Script::Lao), ('\u{ecd}', Script::Lao), ('\u{ed0}',
-        Script::Lao), ('\u{f37}', Script::Tibetan), ('\u{101d}', Script::Myanmar), ('\u{1036}',
-        Script::Myanmar), ('\u{1038}', Script::Myanmar), ('\u{1040}', Script::Myanmar), ('\u{10e7}',
-        Script::Georgian), ('\u{10ff}', Script::Georgian), ('\u{1200}', Script::Ethiopic),
-        ('\u{1206}', Script::Ethiopic), ('\u{1223}', Script::Ethiopic), ('\u{1240}',
-        Script::Ethiopic), ('\u{1260}', Script::Ethiopic), ('\u{1261}', Script::Ethiopic),
-        ('\u{1294}', Script::Ethiopic), ('\u{12ae}', Script::Ethiopic), ('\u{12d0}',
-        Script::Ethiopic), ('\u{1323}', Script::Ethiopic), ('\u{17b7}', Script::Khmer), ('\u{17b8}',
-        Script::Khmer), ('\u{17b9}', Script::Khmer), ('\u{17ba}', Script::Khmer), ('\u{17c6}',
-        Script::Khmer), ('\u{3007}', Script::Han), ('\u{304f}', Script::Hiragana), ('\u{3078}',
-        Script::Hiragana), ('\u{30a4}', Script::Katakana), ('\u{30a8}', Script::Katakana),
-        ('\u{30ab}', Script::Katakana), ('\u{30bf}', Script::Katakana), ('\u{30c8}',
-        Script::Katakana), ('\u{30cb}', Script::Katakana), ('\u{30ce}', Script::Katakana),
-        ('\u{30cf}', Script::Katakana), ('\u{30d8}', Script::Katakana), ('\u{30ed}',
-        Script::Katakana), ('\u{4e00}', Script::Han), ('\u{4e3f}', Script::Han), ('\u{4e8c}',
-        Script::Han), ('\u{4ebb}', Script::Han), ('\u{516b}', Script::Han), ('\u{529b}',
-        Script::Han), ('\u{535c}', Script::Han), ('\u{53e3}', Script::Han), ('\u{56d7}',
-        Script::Han), ('\u{5915}', Script::Han), ('\u{5de5}', Script::Han), ('\u{a792}',
-        Script::Latin), ('\u{a793}', Script::Latin), ('\u{21fe8}', Script::Han)
+    const CONFUSABLES: &'static [char] = &[
+        '\u{41}', '\u{42}', '\u{43}', '\u{45}', '\u{48}', '\u{49}', '\u{4a}', '\u{4b}', '\u{4d}',
+        '\u{4e}', '\u{4f}', '\u{50}', '\u{53}', '\u{54}', '\u{55}', '\u{56}', '\u{57}', '\u{58}',
+        '\u{59}', '\u{5a}', '\u{61}', '\u{62}', '\u{63}', '\u{65}', '\u{66}', '\u{67}', '\u{68}',
+        '\u{69}', '\u{6a}', '\u{6c}', '\u{6e}', '\u{6f}', '\u{70}', '\u{71}', '\u{72}', '\u{73}',
+        '\u{75}', '\u{76}', '\u{77}', '\u{78}', '\u{79}', '\u{c6}', '\u{c7}', '\u{df}', '\u{e6}',
+        '\u{e7}', '\u{f6}', '\u{127}', '\u{131}', '\u{138}', '\u{18f}', '\u{259}', '\u{391}',
+        '\u{392}', '\u{393}', '\u{395}', '\u{396}', '\u{397}', '\u{398}', '\u{399}', '\u{39a}',
+        '\u{39b}', '\u{39c}', '\u{39d}', '\u{39f}', '\u{3a0}', '\u{3a1}', '\u{3a4}', '\u{3a5}',
+        '\u{3a6}', '\u{3a7}', '\u{3b1}', '\u{3b2}', '\u{3b3}', '\u{3b4}', '\u{3b5}', '\u{3b8}',
+        '\u{3b9}', '\u{3ba}', '\u{3bd}', '\u{3bf}', '\u{3c0}', '\u{3c1}', '\u{3c3}', '\u{3c4}',
+        '\u{3c5}', '\u{3c6}', '\u{404}', '\u{405}', '\u{406}', '\u{408}', '\u{410}', '\u{411}',
+        '\u{412}', '\u{413}', '\u{415}', '\u{417}', '\u{41a}', '\u{41b}', '\u{41c}', '\u{41d}',
+        '\u{41e}', '\u{41f}', '\u{420}', '\u{421}', '\u{422}', '\u{423}', '\u{424}', '\u{425}',
+        '\u{42b}', '\u{42c}', '\u{42e}', '\u{430}', '\u{431}', '\u{433}', '\u{435}', '\u{43a}',
+        '\u{43e}', '\u{43f}', '\u{440}', '\u{441}', '\u{442}', '\u{443}', '\u{444}', '\u{445}',
+        '\u{454}', '\u{455}', '\u{456}', '\u{458}', '\u{45b}', '\u{48c}', '\u{48d}', '\u{490}',
+        '\u{491}', '\u{492}', '\u{493}', '\u{498}', '\u{49e}', '\u{49f}', '\u{4aa}', '\u{4ab}',
+        '\u{4ae}', '\u{4af}', '\u{4b0}', '\u{4b1}', '\u{4bb}', '\u{4bd}', '\u{4bf}', '\u{4c0}',
+        '\u{4c7}', '\u{4c9}', '\u{4cd}', '\u{4cf}', '\u{4d4}', '\u{4d5}', '\u{4d8}', '\u{4d9}',
+        '\u{4e0}', '\u{4e8}', '\u{4e9}', '\u{511}', '\u{51b}', '\u{51c}', '\u{51d}', '\u{53b}',
+        '\u{544}', '\u{548}', '\u{54a}', '\u{54c}', '\u{54d}', '\u{54f}', '\u{553}', '\u{555}',
+        '\u{561}', '\u{563}', '\u{566}', '\u{56e}', '\u{570}', '\u{571}', '\u{578}', '\u{57a}',
+        '\u{57c}', '\u{57d}', '\u{581}', '\u{584}', '\u{585}', '\u{5b4}', '\u{5d5}', '\u{5d8}',
+        '\u{5d9}', '\u{5df}', '\u{5e1}', '\u{5f0}', '\u{5f1}', '\u{5f2}', '\u{5f3}', '\u{5f4}',
+        '\u{625}', '\u{627}', '\u{629}', '\u{647}', '\u{660}', '\u{661}', '\u{665}', '\u{667}',
+        '\u{668}', '\u{669}', '\u{6be}', '\u{6c1}', '\u{6c3}', '\u{6d5}', '\u{6f0}', '\u{6f1}',
+        '\u{6f5}', '\u{6f7}', '\u{6f8}', '\u{6f9}', '\u{6ff}', '\u{901}', '\u{902}', '\u{903}',
+        '\u{93c}', '\u{93d}', '\u{941}', '\u{942}', '\u{946}', '\u{94d}', '\u{966}', '\u{967}',
+        '\u{968}', '\u{969}', '\u{96a}', '\u{96e}', '\u{971}', '\u{981}', '\u{983}', '\u{9bc}',
+        '\u{9e6}', '\u{9ea}', '\u{9ed}', '\u{a02}', '\u{a03}', '\u{a3c}', '\u{a4b}', '\u{a4d}',
+        '\u{a66}', '\u{a67}', '\u{a6a}', '\u{a81}', '\u{a82}', '\u{a83}', '\u{abc}', '\u{abd}',
+        '\u{ac1}', '\u{ac2}', '\u{acd}', '\u{ae6}', '\u{ae8}', '\u{ae9}', '\u{aea}', '\u{aee}',
+        '\u{b01}', '\u{b03}', '\u{b20}', '\u{b3c}', '\u{b66}', '\u{b68}', '\u{b82}', '\u{b89}',
+        '\u{b90}', '\u{b9c}', '\u{ba3}', '\u{bb4}', '\u{bb6}', '\u{bbf}', '\u{bcd}', '\u{be6}',
+        '\u{be8}', '\u{c02}', '\u{c03}', '\u{c05}', '\u{c06}', '\u{c07}', '\u{c12}', '\u{c13}',
+        '\u{c14}', '\u{c1c}', '\u{c1e}', '\u{c23}', '\u{c2f}', '\u{c31}', '\u{c32}', '\u{c66}',
+        '\u{c67}', '\u{c68}', '\u{c6f}', '\u{c82}', '\u{c83}', '\u{c85}', '\u{c86}', '\u{c87}',
+        '\u{c92}', '\u{c93}', '\u{c94}', '\u{c9c}', '\u{c9e}', '\u{ca3}', '\u{caf}', '\u{cb1}',
+        '\u{cb2}', '\u{ce6}', '\u{ce7}', '\u{ce8}', '\u{cef}', '\u{d02}', '\u{d03}', '\u{d09}',
+        '\u{d1c}', '\u{d20}', '\u{d23}', '\u{d34}', '\u{d36}', '\u{d3a}', '\u{d3f}', '\u{d40}',
+        '\u{d4e}', '\u{d66}', '\u{d6d}', '\u{d82}', '\u{d83}', '\u{e08}', '\u{e1a}', '\u{e1b}',
+        '\u{e1d}', '\u{e1e}', '\u{e1f}', '\u{e22}', '\u{e34}', '\u{e35}', '\u{e36}', '\u{e37}',
+        '\u{e38}', '\u{e39}', '\u{e48}', '\u{e49}', '\u{e4a}', '\u{e4b}', '\u{e4d}', '\u{e50}',
+        '\u{e88}', '\u{e8d}', '\u{e9a}', '\u{e9b}', '\u{e9d}', '\u{e9e}', '\u{e9f}', '\u{eb8}',
+        '\u{eb9}', '\u{ec8}', '\u{ec9}', '\u{eca}', '\u{ecb}', '\u{ecd}', '\u{ed0}', '\u{f37}',
+        '\u{101d}', '\u{1036}', '\u{1038}', '\u{1040}', '\u{10e7}', '\u{10ff}', '\u{1200}',
+        '\u{1206}', '\u{1223}', '\u{1240}', '\u{1260}', '\u{1261}', '\u{1294}', '\u{12ae}',
+        '\u{12d0}', '\u{1323}', '\u{17b7}', '\u{17b8}', '\u{17b9}', '\u{17ba}', '\u{17c6}',
+        '\u{3007}', '\u{304f}', '\u{3078}', '\u{30a4}', '\u{30a8}', '\u{30ab}', '\u{30bf}',
+        '\u{30c8}', '\u{30cb}', '\u{30ce}', '\u{30cf}', '\u{30d8}', '\u{30ed}', '\u{4e00}',
+        '\u{4e3f}', '\u{4e8c}', '\u{4ebb}', '\u{516b}', '\u{529b}', '\u{535c}', '\u{53e3}',
+        '\u{56d7}', '\u{5915}', '\u{5de5}', '\u{a792}', '\u{a793}', '\u{21fe8}'
     ];
 
 }

@@ -69,3 +69,11 @@ fn test_confusable_detection() {
     assert_eq!(&skeleton("ﶛ").collect::<String>(), "نمى");
     assert_eq!(&skeleton("ﶛﶛ").collect::<String>(), "نمىنمى");
 }
+
+#[test]
+fn test_potential_mixed_script_detection() {
+    use crate::is_potential_mixed_script_confusable_char;
+
+    assert!(is_potential_mixed_script_confusable_char('A'));
+    assert!(!is_potential_mixed_script_confusable_char('D'));
+}

@@ -239,7 +239,7 @@ def is_codepoint_identifier_allowed(c, identifier_allowed):
             return True
     return False
 
-def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
+def load_potential_mixedscript_confusables(f, identifier_allowed, scripts):
     # First, load all confusables data from confusables.txt
     confusables = load_confusables(f)
     
@@ -248,15 +248,6 @@ def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
     # seen as substitutes to itself. So if the confusables.txt says A -> C, B -> C,
     # and implicitly C -> C, it means A <-> B, A <-> C, B <-> C are confusable.
     
-    # here we first make a dict that contains all As and Bs whose corresponding C is single code point.
-    seekup_map = {}
-    for item in confusables:
-        d_proto_list = item[1]
-        d_source = item[0]
-        assert(len(d_proto_list) > 0)
-        if len(d_proto_list) == 1:
-            seekup_map[escape_char(d_source)] = d_proto_list
-
     # Here we're dividing all confusable lhs and rhs(prototype) operands of the substitution into equivalence classes.
     # Principally we'll be using the rhs operands as the representive element of its equivalence classes.
     # However some rhs operands are single code point, while some others are not.
@@ -275,9 +266,8 @@ def load_rustc_mixedscript_confusables(f, identifier_allowed, scripts):
             if d_proto not in codepoint_map:
                 codepoint_map[d_proto] = []
                 # when we create new equivalence class, we'll check whether the representative element should be collected.
-                # i.e. if it is not subject to substituion, and not restricted from identifier usage,
-                # we collect it into the equivalence class.
-                if d_proto not in seekup_map and is_codepoint_identifier_allowed(d_proto_list[0], identifier_allowed):
+                # i.e. if it is not restricted from identifier usage, we collect it into the equivalence class.
+                if is_codepoint_identifier_allowed(d_proto_list[0], identifier_allowed):
                     codepoint_map[d_proto].append(d_proto_list[0])
             # we collect the original code point to be substituted into this list.
             codepoint_map[d_proto].append(d_source)
@@ -562,23 +552,20 @@ def emit_confusable_detection_module(f):
 def escape_script_constant(name, longforms):
     return "Script::" + longforms[name].strip()
 
-def emit_rustc_mixed_script_confusable_detection(f):
-    f.write("pub mod rustc_mixed_script_confusable_detection {")
+def emit_potiential_mixed_script_confusable(f):
+    f.write("pub mod potential_mixed_script_confusable {")
     f.write("""
-    use unicode_script::Script;
-
     #[inline]
-    pub fn is_rustc_mixed_script_confusable(c: char) -> Option<Script> {
+    pub fn potential_mixed_script_confusable(c: char) -> bool {
         match c as usize {
-            _ => super::util::bsearch_value_table(c, CONFUSABLES)
+            _ => super::util::bsearch_table(c, CONFUSABLES)
         }
     }
-
 """)
     identifier_status_table = load_properties("IdentifierStatus.txt")
-    longforms, scripts = load_scripts("Scripts.txt")
+    _, scripts = load_scripts("Scripts.txt")
     identifier_allowed = identifier_status_table['Allowed']
-    (mixedscript_confusable, mixedscript_confusable_unresolved) = load_rustc_mixedscript_confusables("confusables.txt", identifier_allowed, scripts)
+    (mixedscript_confusable, mixedscript_confusable_unresolved) = load_potential_mixedscript_confusables("confusables.txt", identifier_allowed, scripts)
     debug = False
     if debug == True:
         debug_emit_mixedscript_confusable(f, mixedscript_confusable, "mixedscript_confusable", scripts)
@@ -589,8 +576,8 @@ def emit_rustc_mixed_script_confusable_detection(f):
             source = pair[0]
             confusable_table.append((source, script))
     confusable_table.sort(key=lambda w: w[0])
-    emit_table(f, "CONFUSABLES", confusable_table, "&'static [(char, Script)]", is_pub=False,
-            pfun=lambda x: "(%s,%s)" % (escape_char(x[0]), escape_script_constant(x[1], longforms)))
+    emit_table(f, "CONFUSABLES", confusable_table, "&'static [char]", is_pub=False,
+            pfun=lambda x: "%s" % escape_char(x[0]))
     f.write("}\n\n")
 
 
@@ -598,7 +585,12 @@ def emit_util_mod(f):
     f.write("""
 pub mod util {
     use core::result::Result::{Ok, Err};
-    
+
+    #[inline]
+    pub fn bsearch_table(c: char, r: &'static [char]) -> bool {
+        r.binary_search(&c).is_ok()
+    }
+
     #[inline]
     pub fn bsearch_value_table<T: Copy>(c: char, r: &'static [(char, T)]) -> Option<T> {
         match r.binary_search_by_key(&c, |&(k, _)| k) {
@@ -609,7 +601,7 @@ pub mod util {
             Err(_) => None
         }
     }
-    
+
     #[inline]
     pub fn bsearch_range_table(c: char, r: &'static [(char,char)]) -> bool {
         use core::cmp::Ordering::{Equal, Less, Greater};
@@ -619,7 +611,7 @@ pub mod util {
             else { Greater }
         }).is_ok()
     }
-    
+
     pub fn bsearch_range_value_table<T: Copy>(c: char, r: &'static [(char, char, T)]) -> Option<T> {
         use core::cmp::Ordering::{Equal, Less, Greater};
         match r.binary_search_by(|&(lo, hi, _)| {
@@ -660,4 +652,4 @@ pub const UNICODE_VERSION: (u64, u64, u64) = (%s, %s, %s);
         ### confusable_detection module
         emit_confusable_detection_module(rf)
         ### mixed_script_confusable_detection module
-        emit_rustc_mixed_script_confusable_detection(rf)
+        emit_potiential_mixed_script_confusable(rf)

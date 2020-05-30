@@ -130,3 +130,17 @@ impl MixedScript for &'_ str {
         self.into()
     }
 }
+
+/// Check if a character is considered potential mixed script confusable.
+///
+/// If the specified character is not restricted from use for identifiers,
+/// this function returns whether it is considered mixed script confusable
+/// with another character that is not restricted from use for identifiers.
+///
+/// If the specified character is restricted from use for identifiers,
+/// the return value is unspecified.
+pub fn is_potential_mixed_script_confusable_char(c: char) -> bool {
+    use crate::tables::potential_mixed_script_confusable::potential_mixed_script_confusable;
+
+    potential_mixed_script_confusable(c)
+}

@@ -12,10 +12,15 @@
 
 # This script uses the following Unicode security tables:
 # - IdentifierStatus.txt
+# - IdentifierType.txt
+# - PropertyValueAliases.txt
+# - confusables.txt
 # - ReadMe.txt
+# This script also uses the following Unicode UCD data:
+# - Scripts.txt
 #
 # Since this should not require frequent updates, we just store this
-# out-of-line and check the unicode.rs file into git.
+# out-of-line and check the tables.rs file into git.
 
 import fileinput, re, os, sys, operator
 
@@ -38,6 +43,7 @@ UNICODE_VERSION = (13, 0, 0)
 
 UNICODE_VERSION_NUMBER = "%s.%s.%s" %UNICODE_VERSION
 
+# Download a Unicode security table file
 def fetch(f):
     if not os.path.exists(os.path.basename(f)):
         os.system("curl -O http://www.unicode.org/Public/security/%s/%s"
@@ -47,6 +53,18 @@ def fetch(f):
         sys.stderr.write("cannot load %s\n" % f)
         exit(1)
 
+# Download a UCD table file
+def fetch_unidata(f):
+    if not os.path.exists(os.path.basename(f)):
+        os.system("curl -O http://www.unicode.org/Public/%s/ucd/%s"
+                  % (UNICODE_VERSION_NUMBER, f))
+
+    if not os.path.exists(os.path.basename(f)):
+        sys.stderr.write("cannot load %s" % f)
+        exit(1)
+
+# Loads code point data from IdentifierStatus.txt and
+# IdentifierType.txt
 # Implementation from unicode-segmentation
 def load_properties(f, interestingprops = None):
     fetch(f)
@@ -81,6 +99,43 @@ def load_properties(f, interestingprops = None):
 
     return props
 
+# Loads script data from Scripts.txt
+def load_script_properties(f, interestingprops):
+    fetch_unidata(f)
+    props = {}
+    # Note: these regexes are different from those in unicode-segmentation,
+    # becase we need to handle spaces here
+    re1 = re.compile(r"^ *([0-9A-F]+) *; *([^#]+) *#")
+    re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *([^#]+) *#")
+
+    for line in fileinput.input(os.path.basename(f)):
+        prop = None
+        d_lo = 0
+        d_hi = 0
+        m = re1.match(line)
+        if m:
+            d_lo = m.group(1)
+            d_hi = m.group(1)
+            prop = m.group(2).strip()
+        else:
+            m = re2.match(line)
+            if m:
+                d_lo = m.group(1)
+                d_hi = m.group(2)
+                prop = m.group(3).strip()
+            else:
+                continue
+        if interestingprops and prop not in interestingprops:
+            continue
+        d_lo = int(d_lo, 16)
+        d_hi = int(d_hi, 16)
+        if prop not in props:
+            props[prop] = []
+        props[prop].append((d_lo, d_hi))
+
+    return props
+
+# Loads confusables data from confusables.txt
 def load_confusables(f):
     fetch(f)
     confusables = []
@@ -97,11 +152,307 @@ def load_confusables(f):
             raise Exception('More than one code point in first column')
         d_input = int(d_inputs[0].strip(), 16)
         for d_output in m.group(2).split():
-            d_outputitem = int(d_output, 16);
-            d_outputs.append(d_outputitem);
+            d_outputitem = int(d_output, 16)
+            d_outputs.append(d_outputitem)
         confusables.append((d_input, d_outputs))
 
     return confusables
+
+# Loads Unicode script name correspondence from PropertyValueAliases.txt
+def aliases():
+    # This function is taken from the `unicode-script` crate. If significant
+    # changes are introduced, update accordingly.
+    
+    # Note that this file is in UCD directly, not security directory.
+    # we use `fetch_unidata` function to download it.
+    fetch_unidata("PropertyValueAliases.txt")
+    longforms = {}
+    shortforms = {}
+    re1 = re.compile(r"^ *sc *; *(\w+) *; *(\w+)")
+    for line in fileinput.input(os.path.basename("PropertyValueAliases.txt")):
+        m = re1.match(line)
+        if m:
+            l = m.group(2).strip()
+            s = m.group(1).strip()
+            assert(s not in longforms)
+            assert(l not in shortforms)
+            longforms[s] = l
+            shortforms[l] = s
+        else:
+            continue
+
+    return (longforms, shortforms)
+
+# Loads Unicode script name list and correspondence mapping
+def load_scripts(f):
+    # This function is taken from the `unicode-script` crate. If significant
+    # changes are introduced, update accordingly.
+    
+    (longforms, shortforms) = aliases()
+    scripts = load_script_properties(f, [])
+
+    script_table = []
+    script_list = []
+
+    for script in scripts:
+        if script not in ["Common", "Unknown", "Inherited"]:
+            script_list.append(shortforms[script])
+        script_table.extend([(x, y, shortforms[script]) for (x, y) in scripts[script]])
+    script_list.sort()
+    script_table.sort(key=lambda w: w[0])
+    return (longforms, script_table)
+
+def is_script_ignored_in_mixedscript(source):
+    return source == 'Zinh' or source == 'Zyyy' or source == 'Zzzz'
+
+# When a codepoint's prototype consists of multiple codepoints.
+# The situation is more complex. Here we make up a few rules
+# to cover all the cases in confusables.txt .
+# The principle is that when replacing the original codepoint with its prototype.
+# Neither a "non-ignored script" appears nor it disappears.
+# 
+# We make up several rules to cover the cases occurred within confusables.txt
+# Return True, True when we want to consider it confusable,
+# and return True, False when we want to consider it non-confusable.
+# and return False, _ when new not-yet-processed cases are added in future Unicode versions.
+def process_mixedscript_single_to_multi(item_i, script_i, proto_lst, scripts):
+    script_lst = script_list(proto_lst, scripts)
+    script_lst.sort()
+    # here's a few rules to process current version of Unicode data (13.0 at this time)
+    script_lst_len = len(script_lst)
+    assert(script_lst_len > 0)
+    # Rule: A - A -> Processed, DontAdd
+    if script_lst_len == 1 and script_lst[0] == script_i:
+        return True, False
+    # Rule: A(not in (Zinh, Zyyy, Zzzz)) - B(not in (Zinh, Zyyy, Zzzz)) -> Processed, Add
+    if (script_lst_len == 1 and not is_script_ignored_in_mixedscript(script_lst[0])
+            and not is_script_ignored_in_mixedscript(script_i)
+            and script_lst[0] != script_i):
+        return True, True    
+    # Rule: (Zinh | Zyyy | Zzzz) - A(not in (Zinh, Zyyy, Zzzz)) -> Processed, Add
+    if (script_lst_len == 1 and is_script_ignored_in_mixedscript(script_lst[0]) 
+            and not is_script_ignored_in_mixedscript(script_i)):
+        return True, True
+    # Rule: A ... - A -> Processed, DontAdd
+    if script_lst_len > 1 and script_i in script_lst:
+        return True, False
+    # Rule: (Zinh | Zyyy | Zzzz) A(not in (Zinh, Zyyy, Zzzz)) - B(not in (Zinh, Zyyy, Zzzz)) -> Processed, Add
+    if (script_lst_len == 2 and is_script_ignored_in_mixedscript(script_lst[0])
+            and not is_script_ignored_in_mixedscript(script_lst[1])
+            and not is_script_ignored_in_mixedscript(script_i)
+            and script_lst[1] != script_i):
+        return True, True
+    if (script_lst_len == 2 and is_script_ignored_in_mixedscript(script_lst[1])
+            and not is_script_ignored_in_mixedscript(script_lst[0])
+            and not is_script_ignored_in_mixedscript(script_i)
+            and script_lst[0] != script_i):
+        return True, True
+    # Rule: (Zinh | Zyyy | Zzzz) (Zinh | Zyyy | Zzzz) - A(not in (Zinh, Zyyy, Zzzz)) -> Processed, Add
+    if (script_lst_len == 2 and is_script_ignored_in_mixedscript(script_lst[0])
+            and is_script_ignored_in_mixedscript(script_lst[1])
+            and not is_script_ignored_in_mixedscript(script_i)):
+        return True, True
+
+    # NotProcessed, DontAdd
+    return False, False
+
+def is_codepoint_identifier_allowed(c, identifier_allowed):
+    for data in identifier_allowed:
+        if c >= data[0] and c <= data[1]:
+            return True
+    return False
+
+# This function load and generates a table of all the confusable characters.
+# It returns a pair consists of a `mixedscript_confusable` table and a 
+# `mixedscript_confusable_unresolved` table. 
+# The `mixedscript_confusable` is a dict, its keys are Unicode script names, and each
+# entry has a value of a inner dict. The inner dict's keys are confusable code points
+# converted to string with the `escape_char` function, and its values are pairs.
+# pair[0] keeps a copy of the confusable code point itself but as integer.
+# pair[1] keeps a list of all the code points that are mixed script confusable with it.
+#         which is only used for debugging purposes.
+#         note that the string 'multi' will occur in the list when pair[0] is considered
+#         confusable with its multiple code point prototype.
+# Usually the `mixedscript_confusable_unresolved` table is empty, but it's possible
+# that future Unicode version update may cause that table become nonempty, in which
+# case more rules needs to be added to the `process_mixedscript_single_to_multi` function
+# above to cover those new cases.
+def load_potential_mixedscript_confusables(f, identifier_allowed, scripts):
+    # First, load all confusables data from confusables.txt
+    confusables = load_confusables(f)
+    
+    # The confusables.txt is reductive, means that it is intended to be used in
+    # on the fly substitutions. The code points that didn't occur in the file can be
+    # seen as substitutes to itself. So if the confusables.txt says A -> C, B -> C,
+    # and implicitly C -> C, it means A <-> B, A <-> C, B <-> C are confusable.
+    
+    # Here we're dividing all confusable lhs and rhs(prototype) operands of the substitution into equivalence classes.
+    # Principally we'll be using the rhs operands as the representive element of its equivalence classes.
+    # However some rhs operands are single code point, while some others are not.
+    # Here we collect them separately into `codepoint_map` and `multicodepoint_map`.
+    codepoint_map = {}
+    multicodepoint_map = {}
+    for item in confusables:
+        d_source = item[0]
+        # According to the RFC, we'll skip those code points that are restricted from identifier usage.
+        if not is_codepoint_identifier_allowed(d_source, identifier_allowed):
+            continue
+        d_proto_list = item[1]
+        if len(d_proto_list) == 1:
+            d_proto = escape_char(d_proto_list[0])
+            # we use the escaped representation of rhs as key to the dict when creating new equivalence class.
+            if d_proto not in codepoint_map:
+                codepoint_map[d_proto] = []
+                # when we create new equivalence class, we'll check whether the representative element should be collected.
+                # i.e. if it is not restricted from identifier usage, we collect it into the equivalence class.
+                if is_codepoint_identifier_allowed(d_proto_list[0], identifier_allowed):
+                    codepoint_map[d_proto].append(d_proto_list[0])
+            # we collect the original code point to be substituted into this list.
+            codepoint_map[d_proto].append(d_source)
+        else:
+            d_protos = escape_char_list(d_proto_list)
+            # difference in multi code point case: the rhs part is not directly usable, however we store it in
+            # dict for further special examination between each lhs and this multi code point rhs.
+            # and there's an extra level of tuple here.
+            if d_protos not in multicodepoint_map:
+                multicodepoint_map[d_protos] = (d_proto_list, [])
+            multicodepoint_map[d_protos][1].append(d_source)
+    
+    mixedscript_confusable = {}
+
+    def confusable_entry_item(confusable, script, item_text, item):
+        if script not in confusable:
+            confusable[script] = {}
+        script_entry = confusable[script]
+        if item_text not in script_entry:
+            script_entry[item_text] = (item, [])
+        return script_entry[item_text][1]
+
+    # First let's examine the each code point having single code point prototype case.
+    for _, source in codepoint_map.items():
+        source_len = len(source)
+        # Examine each pair in the equivalence class
+        for i in range(0, source_len - 1):
+            for j in range(i + 1, source_len):
+                item_i, item_j = source[i], source[j]
+                script_i, script_j = codepoint_script(item_i, scripts), codepoint_script(item_j, scripts)
+                # If they're in the same script, just skip this pair.
+                if script_i == script_j:
+                    continue
+                # If `item_i` (the first) is not in a non-ignored script, and `item_j` (the second) is in a differnt one (maybe ignored),
+                # this means that this usage of the `item_i` can be suspicious, when it occurs in a document that is written in `script_j`.
+                # We'll consider it a mixed_script_confusable code point.
+                if not is_script_ignored_in_mixedscript(script_i):
+                    # store it within the map, saving as much information as possible, for further investigation on the final results.
+                    confusable_entry_item(mixedscript_confusable, script_i, escape_char(item_i), item_i).append(item_j)
+                # Do the same in reverse from `item_j` to `item_i` 
+                if not is_script_ignored_in_mixedscript(script_j):
+                    confusable_entry_item(mixedscript_confusable, script_j, escape_char(item_j), item_j).append(item_i)
+
+    # Then let's examine the each code point having multiple code point prototype case.
+    # We'll check between the code points that shares the same prototype
+    for _, proto_lst_and_source in multicodepoint_map.items():
+        source = proto_lst_and_source[1]
+        source_len = len(source)
+        # This is basically the same as the single code point case.
+        for i in range(0, source_len - 1):
+            for j in range(i + 1, source_len):
+                item_i, item_j = source[i], source[j]
+                script_i, script_j = codepoint_script(item_i, scripts), codepoint_script(item_j, scripts)
+                if script_i == script_j:
+                    continue
+                if not is_script_ignored_in_mixedscript(script_i):
+                    confusable_entry_item(mixedscript_confusable, script_i, escape_char(item_i), item_i).append(item_j)
+                if not is_script_ignored_in_mixedscript(script_j):
+                    confusable_entry_item(mixedscript_confusable, script_j, escape_char(item_j), item_j).append(item_i)
+
+    mixedscript_confusable_unresolved = {}
+    # We'll also check between each code points and its multiple codepoint prototype
+    for _, proto_lst_and_source in multicodepoint_map.items():
+        proto_lst = proto_lst_and_source[0]
+        proto_lst_can_be_part_of_identifier = True
+        # If the prototype contains one or more restricted code point, then we skip it.
+        for c in proto_lst:
+            if not is_codepoint_identifier_allowed(c, identifier_allowed):
+                proto_lst_can_be_part_of_identifier = False
+                break
+        if not proto_lst_can_be_part_of_identifier:
+            continue
+        source = proto_lst_and_source[1]
+        source_len = len(source)
+        for i in range(0, source_len):
+            item_i = source[i]
+            # So here we're just checking whether the single code point should be considered confusable.
+            script_i = codepoint_script(item_i, scripts)
+            # If it's in ignored script, we don't need to do anything here.
+            if is_script_ignored_in_mixedscript(script_i):
+                continue
+            # Here're some rules on examining whether the single code point should be considered confusable.
+            # The principle is that, when subsitution happens, no new non-ignored script are introduced, and its
+            # own script is not lost.
+            processed, should_add = process_mixedscript_single_to_multi(item_i, script_i, proto_lst, scripts)
+            if should_add:
+                assert(processed)
+                # Mark the single code point as confusable.
+                confusable_entry_item(mixedscript_confusable, script_i, escape_char(item_i), item_i).append('multi')
+            if processed:
+                # Finished dealing with this code point.
+                continue
+            # If it's not processed we must be dealing with a newer version Unicode data, which introduced some significant
+            # changes. We don't throw an exception here, instead we collect it into a table for debugging purpose, and throw
+            # an exception after we returned and printed the table out.
+            proto_lst_text = escape_char_list(proto_lst)
+            if not proto_lst_text in mixedscript_confusable_unresolved:
+                mixedscript_confusable_unresolved[proto_lst_text] = (proto_lst, [])
+            mixedscript_confusable_unresolved[proto_lst_text][1].append(item_i)
+    return (mixedscript_confusable, mixedscript_confusable_unresolved)
+
+def codepoint_script(c, scripts):
+    for x, y, script in scripts:
+        if c >= x and c <= y:
+            return script
+    raise Exception("Not in scripts: " + escape_char(c))
+
+# Emit some useful information for debugging when further update happens.
+def debug_emit_mixedscript_confusable(f, mixedscript_confusable, text, scripts):
+    f.write("/* " + text + "\n")
+    for script, lst in mixedscript_confusable.items():
+        f.write("/// Script - " + script + "\n")
+        source_lst = [v[0] for (_, v) in lst.items()]
+        source_lst.sort()
+        for source in source_lst:
+            source_text = escape_char(source)
+            source_item_and_target_lst = lst[source_text]
+            target_lst = source_item_and_target_lst[1]
+            f.write(source_text + " => " + escape_char_list(target_lst) + " // " + escape_script_list(target_lst, scripts)+ "\n")
+    f.write("*/\n")
+    
+
+def script_list(char_lst, scripts):
+    script_lst = []
+    for c in char_lst:
+        if c == 'multi':
+            script = 'Z~multi'
+        else:
+            script = codepoint_script(c, scripts)
+        if script not in script_lst:
+            script_lst.append(script)
+    return script_lst
+
+def escape_script_list(char_lst, scripts):
+    script_lst = script_list(char_lst, scripts)
+    script_lst.sort()
+    return str(script_lst)
+
+def debug_emit_mixedscript_confusable_unresolved(f, map, text, scripts):
+    if len(map) == 0:
+        return
+    print("// " + text + "\n")
+    for prototype_text, pair in map.items():
+        prototype = pair[0]
+        source = pair[1]
+        print(prototype_text + " => " + escape_char_list(source) + " // " + escape_script_list(prototype, scripts) + " => " + escape_script_list(source, scripts) + "\n")
+    raise Exception("update the python script to add new rules for new data")
 
 def format_table_content(f, content, indent):
     line = " "*indent
@@ -119,18 +470,20 @@ def format_table_content(f, content, indent):
     f.write(line)
 
 def escape_char(c):
+    if c == 'multi':
+        return "\"<multiple code points>\""
     return "'\\u{%x}'" % c
 
 def escape_char_list(l):
-    line = "[";
-    first = True;
+    line = "["
+    first = True
     for c in l:
         if first:
-            line += escape_char(c);
+            line += escape_char(c)
         else:
-            line += ", " + escape_char(c);
-        first = False;
-    line += "]";
+            line += ", " + escape_char(c)
+        first = False
+    line += "]"
     return line
 
 def emit_table(f, name, t_data, t_type = "&'static [(char, char)]", is_pub=True,
@@ -226,7 +579,7 @@ def emit_confusable_detection_module(f):
     confusable_table.sort(key=lambda w: w[0])
     
     last_key = None
-    for (k, v) in confusable_table:
+    for (k, _) in confusable_table:
         if k == last_key:
             raise Exception("duplicate keys in confusables table: %s" % k)
         last_key = k
@@ -235,12 +588,48 @@ def emit_confusable_detection_module(f):
             pfun=lambda x: "(%s, &%s)" % (escape_char(x[0]), escape_char_list(x[1])))
     f.write("}\n\n")
 
+def escape_script_constant(name, longforms):
+    return "Script::" + longforms[name].strip()
+
+def emit_potiential_mixed_script_confusable(f):
+    f.write("pub mod potential_mixed_script_confusable {")
+    f.write("""
+    #[inline]
+    pub fn potential_mixed_script_confusable(c: char) -> bool {
+        match c as usize {
+            _ => super::util::bsearch_table(c, CONFUSABLES)
+        }
+    }
+""")
+    identifier_status_table = load_properties("IdentifierStatus.txt")
+    _, scripts = load_scripts("Scripts.txt")
+    identifier_allowed = identifier_status_table['Allowed']
+    (mixedscript_confusable, mixedscript_confusable_unresolved) = load_potential_mixedscript_confusables("confusables.txt", identifier_allowed, scripts)
+    debug = False
+    if debug == True:
+        debug_emit_mixedscript_confusable(f, mixedscript_confusable, "mixedscript_confusable", scripts)
+        debug_emit_mixedscript_confusable_unresolved(f, mixedscript_confusable_unresolved, "mixedscript_confusable_unresolved", scripts)
+    confusable_table = []
+    for script, lst in mixedscript_confusable.items():
+        for _, pair in lst.items():
+            source = pair[0]
+            confusable_table.append((source, script))
+    confusable_table.sort(key=lambda w: w[0])
+    emit_table(f, "CONFUSABLES", confusable_table, "&'static [char]", is_pub=False,
+            pfun=lambda x: "%s" % escape_char(x[0]))
+    f.write("}\n\n")
+
 
 def emit_util_mod(f):
     f.write("""
 pub mod util {
     use core::result::Result::{Ok, Err};
-    
+
+    #[inline]
+    pub fn bsearch_table(c: char, r: &'static [char]) -> bool {
+        r.binary_search(&c).is_ok()
+    }
+
     #[inline]
     pub fn bsearch_value_table<T: Copy>(c: char, r: &'static [(char, T)]) -> Option<T> {
         match r.binary_search_by_key(&c, |&(k, _)| k) {
@@ -251,7 +640,7 @@ pub mod util {
             Err(_) => None
         }
     }
-    
+
     #[inline]
     pub fn bsearch_range_table(c: char, r: &'static [(char,char)]) -> bool {
         use core::cmp::Ordering::{Equal, Less, Greater};
@@ -261,7 +650,7 @@ pub mod util {
             else { Greater }
         }).is_ok()
     }
-    
+
     pub fn bsearch_range_value_table<T: Copy>(c: char, r: &'static [(char, char, T)]) -> Option<T> {
         use core::cmp::Ordering::{Equal, Less, Greater};
         match r.binary_search_by(|&(lo, hi, _)| {
@@ -301,3 +690,5 @@ pub const UNICODE_VERSION: (u64, u64, u64) = (%s, %s, %s);
         emit_identifier_module(rf)
         ### confusable_detection module
         emit_confusable_detection_module(rf)
+        ### mixed_script_confusable_detection module
+        emit_potiential_mixed_script_confusable(rf)

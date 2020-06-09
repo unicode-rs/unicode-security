@@ -65,6 +65,7 @@ pub mod restriction_level;
 
 pub use confusable_detection::skeleton;
 pub use general_security_profile::GeneralSecurityProfile;
+pub use mixed_script::is_potential_mixed_script_confusable_char;
 pub use mixed_script::MixedScript;
 pub use restriction_level::{RestrictionLevel, RestrictionLevelDetection};
 

@@ -12,10 +12,15 @@
 
 # This script uses the following Unicode security tables:
 # - IdentifierStatus.txt
+# - IdentifierType.txt
+# - PropertyValueAliases.txt
+# - confusables.txt
 # - ReadMe.txt
+# This script also uses the following Unicode UCD data:
+# - Scripts.txt
 #
 # Since this should not require frequent updates, we just store this
-# out-of-line and check the unicode.rs file into git.
+# out-of-line and check the tables.rs file into git.
 
 import fileinput, re, os, sys, operator
 
@@ -38,6 +43,7 @@ UNICODE_VERSION = (13, 0, 0)
 
 UNICODE_VERSION_NUMBER = "%s.%s.%s" %UNICODE_VERSION
 
+# Download a Unicode security table file
 def fetch(f):
     if not os.path.exists(os.path.basename(f)):
         os.system("curl -O http://www.unicode.org/Public/security/%s/%s"
@@ -47,6 +53,7 @@ def fetch(f):
         sys.stderr.write("cannot load %s\n" % f)
         exit(1)
 
+# Download a UCD table file
 def fetch_unidata(f):
     if not os.path.exists(os.path.basename(f)):
         os.system("curl -O http://www.unicode.org/Public/%s/ucd/%s"
@@ -56,6 +63,8 @@ def fetch_unidata(f):
         sys.stderr.write("cannot load %s" % f)
         exit(1)
 
+# Loads code point data from IdentifierStatus.txt and
+# IdentifierType.txt
 # Implementation from unicode-segmentation
 def load_properties(f, interestingprops = None):
     fetch(f)
@@ -90,6 +99,7 @@ def load_properties(f, interestingprops = None):
 
     return props
 
+# Loads script data from Scripts.txt
 def load_script_properties(f, interestingprops):
     fetch_unidata(f)
     props = {}
@@ -125,6 +135,7 @@ def load_script_properties(f, interestingprops):
 
     return props
 
+# Loads confusables data from confusables.txt
 def load_confusables(f):
     fetch(f)
     confusables = []
@@ -147,6 +158,7 @@ def load_confusables(f):
 
     return confusables
 
+# Loads Unicode script name correspondence from PropertyValueAliases.txt
 def aliases():
     # This function is taken from the `unicode-script` crate. If significant
     # changes are introduced, update accordingly.
@@ -171,6 +183,7 @@ def aliases():
 
     return (longforms, shortforms)
 
+# Loads Unicode script name list and correspondence mapping
 def load_scripts(f):
     # This function is taken from the `unicode-script` crate. If significant
     # changes are introduced, update accordingly.
@@ -192,6 +205,16 @@ def load_scripts(f):
 def is_script_ignored_in_mixedscript(source):
     return source == 'Zinh' or source == 'Zyyy' or source == 'Zzzz'
 
+# When a codepoint's prototype consists of multiple codepoints.
+# The situation is more complex. Here we make up a few rules
+# to cover all the cases in confusables.txt .
+# The principle is that when replacing the original codepoint with its prototype.
+# Neither a "non-ignored script" appears nor it disappears.
+# 
+# We make up several rules to cover the cases occurred within confusables.txt
+# Return True, True when we want to consider it confusable,
+# and return True, False when we want to consider it non-confusable.
+# and return False, _ when new not-yet-processed cases are added in future Unicode versions.
 def process_mixedscript_single_to_multi(item_i, script_i, proto_lst, scripts):
     script_lst = script_list(proto_lst, scripts)
     script_lst.sort()
@@ -239,6 +262,21 @@ def is_codepoint_identifier_allowed(c, identifier_allowed):
             return True
     return False
 
+# This function load and generates a table of all the confusable characters.
+# It returns a pair consists of a `mixedscript_confusable` table and a 
+# `mixedscript_confusable_unresolved` table. 
+# The `mixedscript_confusable` is a dict, its keys are Unicode script names, and each
+# entry has a value of a inner dict. The inner dict's keys are confusable code points
+# converted to string with the `escape_char` function, and its values are pairs.
+# pair[0] keeps a copy of the confusable code point itself but as integer.
+# pair[1] keeps a list of all the code points that are mixed script confusable with it.
+#         which is only used for debugging purposes.
+#         note that the string 'multi' will occur in the list when pair[0] is considered
+#         confusable with its multiple code point prototype.
+# Usually the `mixedscript_confusable_unresolved` table is empty, but it's possible
+# that future Unicode version update may cause that table become nonempty, in which
+# case more rules needs to be added to the `process_mixedscript_single_to_multi` function
+# above to cover those new cases.
 def load_potential_mixedscript_confusables(f, identifier_allowed, scripts):
     # First, load all confusables data from confusables.txt
     confusables = load_confusables(f)
@@ -375,6 +413,7 @@ def codepoint_script(c, scripts):
             return script
     raise Exception("Not in scripts: " + escape_char(c))
 
+# Emit some useful information for debugging when further update happens.
 def debug_emit_mixedscript_confusable(f, mixedscript_confusable, text, scripts):
     f.write("/* " + text + "\n")
     for script, lst in mixedscript_confusable.items():

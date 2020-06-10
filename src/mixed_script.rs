@@ -23,10 +23,7 @@ impl From<ScriptExtension> for AugmentedScriptSet {
         let mut jpan = false;
         let mut kore = false;
 
-        if ext == ScriptExtension::Single(Script::Common)
-            || ext == ScriptExtension::Single(Script::Inherited)
-            || ext.contains_script(Script::Han)
-        {
+        if ext.is_common() || ext.is_inherited() || ext.contains_script(Script::Han) {
             hanb = true;
             jpan = true;
             kore = true;
@@ -67,7 +64,7 @@ impl From<&'_ str> for AugmentedScriptSet {
 impl Default for AugmentedScriptSet {
     fn default() -> Self {
         AugmentedScriptSet {
-            base: ScriptExtension::Single(Script::Common),
+            base: ScriptExtension::from(Script::Common),
             hanb: true,
             jpan: true,
             kore: true,
@@ -91,8 +88,7 @@ impl AugmentedScriptSet {
 
     /// Check if the set is "All" (Common or Inherited)
     pub fn is_all(&self) -> bool {
-        self.base == ScriptExtension::Single(Script::Common)
-            || self.base == ScriptExtension::Single(Script::Inherited)
+        self.base.is_common() || self.base.is_inherited()
     }
 
     /// Construct an AugmentedScriptSet for a given character

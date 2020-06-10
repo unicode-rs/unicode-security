@@ -1,11 +1,12 @@
 //! [Mixed-script detection](https://www.unicode.org/reports/tr39/#Mixed_Script_Detection)
 
+use core::fmt::{self, Debug};
 use unicode_script::{Script, ScriptExtension};
 
 /// An Augmented script set, as defined by UTS 39
 ///
 /// https://www.unicode.org/reports/tr39/#def-augmented-script-set
-#[derive(Copy, Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Copy, Clone, PartialEq, Hash, Eq)]
 pub struct AugmentedScriptSet {
     /// The base ScriptExtension value
     pub base: ScriptExtension,
@@ -69,6 +70,38 @@ impl Default for AugmentedScriptSet {
             jpan: true,
             kore: true,
         }
+    }
+}
+
+impl Debug for AugmentedScriptSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_empty() {
+            write!(f, "AugmentedScriptSet {{∅}}")?;
+        } else if self.is_all() {
+            write!(f, "AugmentedScriptSet {{ALL}}")?;
+        } else {
+            write!(f, "AugmentedScriptSet {{")?;
+            let mut first_entry = true;
+            let hanb = if self.hanb { Some("Hanb") } else { None };
+            let jpan = if self.jpan { Some("Jpan") } else { None };
+            let kore = if self.kore { Some("Kore") } else { None };
+            for writing_system in None
+                .into_iter()
+                .chain(hanb)
+                .chain(jpan)
+                .chain(kore)
+                .chain(self.base.iter().map(Script::short_name))
+            {
+                if !first_entry {
+                    write!(f, ", ")?;
+                } else {
+                    first_entry = false;
+                }
+                write!(f, "{}", writing_system)?;
+            }
+            write!(f, "}}")?;
+        }
+        Ok(())
     }
 }
 

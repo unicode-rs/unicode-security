@@ -3,7 +3,7 @@
 
 use crate::mixed_script::AugmentedScriptSet;
 use crate::GeneralSecurityProfile;
-use unicode_script::{Script, ScriptExtension};
+use unicode_script::Script;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 /// The [Restriction level](https://www.unicode.org/reports/tr39/#Restriction_Level_Detection)
@@ -64,7 +64,8 @@ impl RestrictionLevelDetection for &'_ str {
             return RestrictionLevel::SingleScript;
         } else if exclude_latin_set.kore || exclude_latin_set.hanb || exclude_latin_set.jpan {
             return RestrictionLevel::HighlyRestrictive;
-        } else if let ScriptExtension::Single(script) = exclude_latin_set.base {
+        } else if exclude_latin_set.base.len() == 1 {
+            let script = exclude_latin_set.base.iter().next().unwrap();
             if script.is_recommended() && script != Script::Cyrillic && script != Script::Greek {
                 return RestrictionLevel::ModeratelyRestrictive;
             }

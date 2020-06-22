@@ -1,6 +1,6 @@
 [package]
 name = "unicode-security"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Charles Lew <crlf0710@gmail.com>", "Manish Goregaokar <manishsmail@gmail.com>"]
 edition = "2018"
 homepage = "https://github.com/unicode-rs/unicode-security"

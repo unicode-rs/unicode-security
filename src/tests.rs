@@ -79,7 +79,7 @@ fn test_potential_mixed_script_detection() {
 }
 
 #[test]
-fn test_augmented_script_set() {
+fn test_augmented_script_set_fmt_debug() {
     use crate::mixed_script::AugmentedScriptSet;
     let augmented_script_sets = vec![
         AugmentedScriptSet::default(),
@@ -112,5 +112,42 @@ fn test_augmented_script_set() {
 
     for (ss, output) in augmented_script_sets.into_iter().zip(debug_output) {
         assert_eq!(format!("{:?}", ss), output);
+    }
+}
+
+#[test]
+fn test_augmented_script_set_fmt_display() {
+    use crate::mixed_script::AugmentedScriptSet;
+    let augmented_script_sets = vec![
+        AugmentedScriptSet::default(),
+        AugmentedScriptSet::from('0'),
+        AugmentedScriptSet::from('a'),
+        AugmentedScriptSet::from('μ'),
+        AugmentedScriptSet::from('汉'),
+        AugmentedScriptSet::from('ひ'),
+        AugmentedScriptSet::from('カ'),
+        AugmentedScriptSet::from('한'),
+        AugmentedScriptSet::from("汉ひ"),
+        AugmentedScriptSet::from("汉a"),
+        AugmentedScriptSet::from("汉μ"),
+        AugmentedScriptSet::from("〆切"),
+    ];
+    let debug_output = vec![
+        "All",
+        "All",
+        "Latin",
+        "Greek",
+        "Han with Bopomofo, Japanese, Korean, Han",
+        "Japanese, Hiragana",
+        "Japanese, Katakana",
+        "Korean, Hangul",
+        "Japanese",
+        "Empty",
+        "Empty",
+        "Han with Bopomofo, Japanese, Korean, Han",
+    ];
+
+    for (ss, output) in augmented_script_sets.into_iter().zip(debug_output) {
+        assert_eq!(format!("{}", ss), output);
     }
 }

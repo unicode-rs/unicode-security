@@ -105,6 +105,40 @@ impl Debug for AugmentedScriptSet {
     }
 }
 
+impl fmt::Display for AugmentedScriptSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_empty() {
+            write!(f, "Empty")?;
+        } else if self.is_all() {
+            write!(f, "All")?;
+        } else {
+            let mut first_entry = true;
+            let hanb = if self.hanb {
+                Some("Han with Bopomofo")
+            } else {
+                None
+            };
+            let jpan = if self.jpan { Some("Japanese") } else { None };
+            let kore = if self.kore { Some("Korean") } else { None };
+            for writing_system in None
+                .into_iter()
+                .chain(hanb)
+                .chain(jpan)
+                .chain(kore)
+                .chain(self.base.iter().map(Script::full_name))
+            {
+                if !first_entry {
+                    write!(f, ", ")?;
+                } else {
+                    first_entry = false;
+                }
+                write!(f, "{}", writing_system)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl AugmentedScriptSet {
     /// Intersect this set with another
     pub fn intersect_with(&mut self, other: Self) {

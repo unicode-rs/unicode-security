@@ -113,9 +113,13 @@ impl fmt::Display for AugmentedScriptSet {
             write!(f, "All")?;
         } else {
             let mut first_entry = true;
-            let hanb = if self.hanb { Some("Han with Bopomofo") } else { None };
+            let hanb = if self.hanb {
+                Some("Han with Bopomofo")
+            } else {
+                None
+            };
             let jpan = if self.jpan { Some("Japanese") } else { None };
-            let kore = if self.kore { Some("Krorean") } else { None };
+            let kore = if self.kore { Some("Korean") } else { None };
             for writing_system in None
                 .into_iter()
                 .chain(hanb)

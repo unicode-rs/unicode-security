@@ -46,7 +46,7 @@ UNICODE_VERSION_NUMBER = "%s.%s.%s" %UNICODE_VERSION
 # Download a Unicode security table file
 def fetch(f):
     if not os.path.exists(os.path.basename(f)):
-        os.system("curl -O http://www.unicode.org/Public/security/%s/%s"
+        os.system("curl -O https://www.unicode.org/Public/security/%s/%s"
                   % (UNICODE_VERSION_NUMBER, f))
 
     if not os.path.exists(os.path.basename(f)):
@@ -56,7 +56,7 @@ def fetch(f):
 # Download a UCD table file
 def fetch_unidata(f):
     if not os.path.exists(os.path.basename(f)):
-        os.system("curl -O http://www.unicode.org/Public/%s/ucd/%s"
+        os.system("curl -O https://www.unicode.org/Public/%s/ucd/%s"
                   % (UNICODE_VERSION_NUMBER, f))
 
     if not os.path.exists(os.path.basename(f)):

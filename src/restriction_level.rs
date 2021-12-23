@@ -48,7 +48,7 @@ impl RestrictionLevelDetection for &'_ str {
             if !GeneralSecurityProfile::identifier_allowed(ch) {
                 return RestrictionLevel::Unrestricted;
             }
-            if ch.is_ascii() {
+            if !ch.is_ascii() {
                 ascii_only = false;
             }
             let ch_set = ch.into();

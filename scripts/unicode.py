@@ -53,6 +53,8 @@ def fetch(f):
         sys.stderr.write("cannot load %s\n" % f)
         exit(1)
 
+    return f
+
 # Download a UCD table file
 def fetch_unidata(f):
     if not os.path.exists(os.path.basename(f)):
@@ -63,52 +65,16 @@ def fetch_unidata(f):
         sys.stderr.write("cannot load %s" % f)
         exit(1)
 
-# Loads code point data from IdentifierStatus.txt and
-# IdentifierType.txt
-# Implementation from unicode-segmentation
+    return f
+
+# Loads code point data from provided filename f
+# Implementation adapted from unicode-segmentation
 def load_properties(f, interestingprops = None):
-    fetch(f)
     props = {}
-    re1 = re.compile(r"^ *([0-9A-F]+) *; *(\w+)")
-    re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *(\w+)")
+    re1 = re.compile(r"^ *([0-9A-F]+) *; *([^#\s]+) *#")
+    re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *([^#\s]+) *#")
 
     for line in fileinput.input(os.path.basename(f), openhook=fileinput.hook_encoded("utf-8")):
-        prop = None
-        d_lo = 0
-        d_hi = 0
-        m = re1.match(line)
-        if m:
-            d_lo = m.group(1)
-            d_hi = m.group(1)
-            prop = m.group(2).strip()
-        else:
-            m = re2.match(line)
-            if m:
-                d_lo = m.group(1)
-                d_hi = m.group(2)
-                prop = m.group(3).strip()
-            else:
-                continue
-        if interestingprops and prop not in interestingprops:
-            continue
-        d_lo = int(d_lo, 16)
-        d_hi = int(d_hi, 16)
-        if prop not in props:
-            props[prop] = []
-        props[prop].append((d_lo, d_hi))
-
-    return props
-
-# Loads script data from Scripts.txt
-def load_script_properties(f, interestingprops):
-    fetch_unidata(f)
-    props = {}
-    # Note: these regexes are different from those in unicode-segmentation,
-    # becase we need to handle spaces here
-    re1 = re.compile(r"^ *([0-9A-F]+) *; *([^#]+) *#")
-    re2 = re.compile(r"^ *([0-9A-F]+)\.\.([0-9A-F]+) *; *([^#]+) *#")
-
-    for line in fileinput.input(os.path.basename(f)):
         prop = None
         d_lo = 0
         d_hi = 0
@@ -189,7 +155,7 @@ def load_scripts(f):
     # changes are introduced, update accordingly.
     
     (longforms, shortforms) = aliases()
-    scripts = load_script_properties(f, [])
+    scripts = load_properties(fetch_unidata(f), [])
 
     script_table = []
     script_list = []
@@ -546,10 +512,10 @@ def emit_identifier_module(f):
 """)
 
     f.write("    // Identifier status table:\n")
-    identifier_status_table = load_properties("IdentifierStatus.txt")
+    identifier_status_table = load_properties(fetch("IdentifierStatus.txt"))
     emit_table(f, "IDENTIFIER_STATUS", identifier_status_table['Allowed'], "&'static [(char, char)]", is_pub=False,
             pfun=lambda x: "(%s,%s)" % (escape_char(x[0]), escape_char(x[1])))
-    identifier_type = load_properties("IdentifierType.txt")
+    identifier_type = load_properties(fetch("IdentifierType.txt"))
     type_table = []
     for ty in identifier_type:
         type_table.extend([(x, y, ty) for (x, y) in identifier_type[ty]])
@@ -601,7 +567,7 @@ def emit_potiential_mixed_script_confusable(f):
         }
     }
 """)
-    identifier_status_table = load_properties("IdentifierStatus.txt")
+    identifier_status_table = load_properties(fetch("IdentifierStatus.txt"))
     _, scripts = load_scripts("Scripts.txt")
     identifier_allowed = identifier_status_table['Allowed']
     (mixedscript_confusable, mixedscript_confusable_unresolved) = load_potential_mixedscript_confusables("confusables.txt", identifier_allowed, scripts)

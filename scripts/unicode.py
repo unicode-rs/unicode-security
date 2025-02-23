@@ -17,6 +17,7 @@
 # - confusables.txt
 # - ReadMe.txt
 # This script also uses the following Unicode UCD data:
+# - DerivedCoreProperties.txt
 # - Scripts.txt
 #
 # Since this should not require frequent updates, we just store this
@@ -526,6 +527,26 @@ def emit_identifier_module(f):
             pfun=lambda x: "(%s,%s, IdentifierType::%s)" % (escape_char(x[0]), escape_char(x[1]), x[2]))
     f.write("}\n\n")
 
+def emit_default_ignorable_detection_module(f):
+    f.write("pub mod default_ignorable_code_point {")
+    f.write("""
+
+    #[inline]
+    pub fn default_ignorable_code_point(c: char) -> bool {
+        match c as usize {
+            _ => super::util::bsearch_range_table(c, DEFAULT_IGNORABLE)
+        }
+    }
+
+""")
+
+    f.write("    // Default ignorable code point table:\n")
+    default_ignorable_table = load_properties(fetch_unidata("DerivedCoreProperties.txt"), ["Default_Ignorable_Code_Point"])
+    emit_table(f, "DEFAULT_IGNORABLE", default_ignorable_table["Default_Ignorable_Code_Point"], "&'static [(char, char)]", is_pub=False,
+            pfun=lambda x: "(%s,%s)" % (escape_char(x[0]), escape_char(x[1])))
+
+    f.write("}\n\n")
+
 def emit_confusable_detection_module(f):
     f.write("pub mod confusable_detection {")
     f.write("""
@@ -654,6 +675,8 @@ pub const UNICODE_VERSION: (u64, u64, u64) = (%s, %s, %s);
         emit_util_mod(rf)
         ### identifier module
         emit_identifier_module(rf)
+        ### default_ignorable_detection module
+        emit_default_ignorable_detection_module(rf)
         ### confusable_detection module
         emit_confusable_detection_module(rf)
         ### mixed_script_confusable_detection module

@@ -66,6 +66,7 @@ fn test_confusable_detection() {
     assert_eq!(&skeleton("").collect::<String>(), "");
     assert_eq!(&skeleton("ｓ").collect::<String>(), "s");
     assert_eq!(&skeleton("ｓｓｓ").collect::<String>(), "sss");
+    assert_eq!(&skeleton("ｓ؜ｓ؜ｓ").collect::<String>(), "sss");
     assert_eq!(&skeleton("ﶛ").collect::<String>(), "نمى");
     assert_eq!(&skeleton("ﶛﶛ").collect::<String>(), "نمىنمى");
 }

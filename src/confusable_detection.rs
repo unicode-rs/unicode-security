@@ -34,6 +34,12 @@ fn char_prototype(c: char) -> OnceOrMore<char, StaticSliceIterCloned> {
 
 /// Calculate skeleton for string, as defined by UTS 39
 pub fn skeleton(s: &str) -> impl Iterator<Item = char> + '_ {
+    use crate::tables::default_ignorable_code_point::default_ignorable_code_point;
     use unicode_normalization::UnicodeNormalization;
-    s.chars().nfd().flat_map(char_prototype).nfd()
+
+    s.chars()
+        .nfd()
+        .filter(|c| !default_ignorable_code_point(*c))
+        .flat_map(char_prototype)
+        .nfd()
 }
